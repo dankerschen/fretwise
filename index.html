@@ -165,6 +165,12 @@ dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1
 .history{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .history span{font-size:.75rem;padding:2px 8px;border-radius:999px;background:var(--surface2);border:1px solid transparent}
 .history .good{border-color:var(--good)} .history .shaky{border-color:var(--accent)} .history .miss{border-color:var(--bad)}
+.review{margin-top:12px;max-height:440px;overflow-y:auto}
+.rv-row{display:flex;justify-content:space-between;align-items:center;gap:6px 12px;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
+.rv-row .btn{padding:4px 10px;font-size:.8rem}
+.rv-row .btn:disabled{cursor:default}
+.rv-row .btn:disabled:not(.chosen){opacity:.3}
+.pending{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--accent-soft);border-color:var(--accent);margin-bottom:14px}
 .weak{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.88rem}
 .weak:first-child{border-top:0}
 .summary{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
@@ -358,6 +364,7 @@ dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1
       <label class="field"><input type="checkbox" id="rdHide"> Challenge mode — hide the answer until revealed</label>
       <label class="field"><input type="checkbox" id="rdSound"> Play the sound when drawn</label>
       <label class="field"><input type="checkbox" id="rdWeighted"> Focus on weak spots</label>
+      <label class="field"><input type="checkbox" id="rdRateLater"> Rate items after the session (hands stay on the guitar)</label>
       <p class="muted small" id="rdPoolSize"></p>
     </div>
 
@@ -1194,11 +1201,12 @@ const PRESETS = [
 const drill = Object.assign({
   kinds:['chord'], roots:'nat', q:['','m','7','maj7','m7'], s:['major','minor','majPent','minPent'], scalePos:true,
   progMode:'both', progSev:false, timing:'manual', secs:'10', bpm:70, bars:'2', metro:true,
-  len:'0', hide:false, sound:true, weighted:true,
+  len:'0', hide:false, sound:true, weighted:true, rateLater:false,
 }, load('drill2', {}));
 let dstats = getProgress('drillStats', {});   // itemKey → { it, w (draw weight), good, shaky, miss }
 const ds = { running:false, paused:false, pausedAt:0, cur:null, next:null, curChords:null, revealed:true, rated:null,
-             start:0, n:0, itemBeat:0, totalBeats:0, nextBeat:0, tally:{}, history:[], timer:null };
+             start:0, n:0, itemBeat:0, totalBeats:0, nextBeat:0, history:[], timer:null };
+let review = load('drillReview', null);   // { at, items:[{ it, r }], fresh } — the last session, for rating afterwards
 
 function drillRoots(list){ return drill.roots === 'all' ? list : list.filter(r => r.length === 1); }
 function buildPool(){
@@ -1269,7 +1277,7 @@ function itemView(it){
     body: `<div class="fb-wrap">${fretboardSVG({ [pc]: { name:it.note, ivl:'1', root:true } }, [0,15], 'notes', it.string)}</div><p>Frets: <b>${frets.join(', ')}</b></p>`,
   };
 }
-const idleHTML = () => `<p class="muted">Choose what to practise, then press <b>Start session</b>.</p>
+const idleHTML = () => `${pendingBanner()}<p class="muted">Choose what to practise, then press <b>Start session</b>.</p>
   <ul class="info-list muted"><li><b>Chords</b> — play the chord shown.</li><li><b>Scales</b> — play it up and down (in the position given).</li>
   <li><b>Progressions</b> — play the chords from the Roman numerals in that key.</li><li><b>Find the note</b> — find every place that note occurs on one string.</li></ul>
   <p class="muted small">Turn on challenge mode to test yourself first, then reveal the answer.</p>`;
@@ -1279,7 +1287,7 @@ function renderStage(){
   $('#rdBarWrap').hidden = !(ds.running && timed);
   $('#rdSkip').hidden = !(ds.running && timed);
   $('#rdEnd').hidden = !ds.running;
-  $('#rdRate').hidden = !(ds.running && ds.cur);
+  $('#rdRate').hidden = !(ds.running && ds.cur) || drill.rateLater;
   $('#rdMain').textContent = !ds.running ? '▶ Start session' : !timed ? (ds.revealed ? 'Next ⏭' : 'Reveal') : ds.paused ? '▶ Resume' : '⏸ Pause';
   document.querySelectorAll('#rdRate [data-r]').forEach(b => b.classList.toggle('chosen', b.dataset.r === ds.rated));
   $('#rdCount').textContent = ds.running ? `Item ${ds.n}${len ? ' of ' + len : ''}${ds.paused ? ' · paused' : ''}` : '';
@@ -1301,7 +1309,7 @@ function playItem(it, t){
 function startSession(){
   if (!buildPool().length){ $('#rdOut').innerHTML = '<p class="muted">Nothing to draw — pick at least one item type, chord type or scale.</p>'; return; }
   ac();
-  Object.assign(ds, { running:true, paused:false, cur:null, next:pickItem(null), n:0, tally:{ good:0, shaky:0, miss:0 }, history:[] });
+  Object.assign(ds, { running:true, paused:false, cur:null, next:pickItem(null), n:0, history:[] });
   clearInterval(ds.timer); ds.timer = setInterval(tick, 25);
   if (drill.timing === 'beats'){ ds.itemBeat = 0; ds.totalBeats = 0; ds.nextBeat = performance.now() + 150; renderStage(); }
   else advance();
@@ -1330,13 +1338,51 @@ function reveal(){
 }
 function endSession(){
   clearInterval(ds.timer); ds.running = false; ds.paused = false; ds.cur = null;
-  const t = ds.tally, weak = [...new Set(ds.history.filter(h => h.r === 'miss' || h.r === 'shaky').map(h => itemTitle(h.it)))];
-  $('#rdOut').innerHTML = ds.n ? `<h3 style="margin-top:0">Session complete</h3>
-    <div class="summary"><div><b>${ds.n}</b>items</div><div><b style="color:var(--good)">${t.good}</b>got it</div>
-    <div><b style="color:var(--accent)">${t.shaky}</b>shaky</div><div><b style="color:var(--bad)">${t.miss}</b>missed</div></div>
-    ${weak.length ? `<p class="small">Work on: <b>${weak.join(' · ')}</b></p>` : t.good ? '<p class="small">Clean session — nice work!</p>' : ''}` : idleHTML();
   $('#rdBar').style.width = '0';
+  if (ds.n){
+    review = { at:Date.now(), items:ds.history.map(h => ({ it:h.it, r:h.r })), fresh:true };
+    saveReview(); renderReview();
+  } else $('#rdOut').innerHTML = idleHTML();
   renderStage();
+}
+
+/* Session review: rate items after the session. A review with unrated items is kept in this browser
+   (and offered again from the idle screen) until everything is rated or it's replaced by the next session. */
+const RATINGS = [['good','✓ Got it'], ['shaky','~ Shaky'], ['miss','✗ Missed']];
+function saveReview(){ store('drillReview', review && review.items.some(h => !h.r) ? { ...review, fresh:false } : null); }
+function pendingBanner(){
+  const left = review ? review.items.filter(h => !h.r).length : 0;
+  if (!left) return '';
+  const when = new Date(review.at).toLocaleString([], { dateStyle:'medium', timeStyle:'short' });
+  return `<div class="panel pending"><span>📝 <b>${left}</b> item${left > 1 ? 's' : ''} from your session on ${when} still need rating.</span>
+    <button class="btn" data-rv-open>Review now</button></div>`;
+}
+function renderReview(){
+  const items = review.items, count = r => items.filter(h => h.r === r).length, left = items.filter(h => !h.r).length;
+  const weak = [...new Set(items.filter(h => h.r === 'miss' || h.r === 'shaky').map(h => itemTitle(h.it)))];
+  const when = new Date(review.at).toLocaleString([], { dateStyle:'medium', timeStyle:'short' });
+  $('#rdOut').innerHTML = `<h3 style="margin-top:0">${review.fresh ? 'Session complete' : 'Session review'}</h3>
+    <p class="muted small">${when} · ${items.length} items · ${left ? `<b>${left} still to rate</b> — how did each one go?` : 'all rated'}</p>
+    <div class="summary"><div><b>${items.length}</b>items</div><div><b style="color:var(--good)">${count('good')}</b>got it</div>
+    <div><b style="color:var(--accent)">${count('shaky')}</b>shaky</div><div><b style="color:var(--bad)">${count('miss')}</b>missed</div></div>
+    ${weak.length ? `<p class="small">Work on: <b>${weak.join(' · ')}</b></p>` : !left && count('good') ? '<p class="small">Clean session — nice work!</p>' : ''}
+    <div class="review">${items.map((h,i) => `<div class="rv-row"><span>${i + 1}. ${itemTitle(h.it)}</span><span class="rate">${RATINGS.map(([r,l]) =>
+      `<button class="btn r-${r}${h.r === r ? ' chosen' : ''}" data-rv="${i}" data-r="${r}"${h.r ? ' disabled' : ''}>${l}</button>`).join('')}</span></div>`).join('')}</div>
+    <div class="controls">${left ? '<button class="btn" data-rv-all>Mark the rest ✓ Got it</button><button class="btn" data-rv-close>Rate later</button>' : '<button class="btn" data-rv-close>Done</button>'}</div>`;
+}
+function onReviewClick(e){
+  const b = e.target.closest('[data-rv], [data-rv-all], [data-rv-close], [data-rv-open]'); if (!b) return false;
+  if (b.hasAttribute('data-rv-open')) renderReview();
+  else if (b.hasAttribute('data-rv-close')){
+    if (!review.items.some(h => !h.r)) review = null;
+    $('#rdOut').innerHTML = idleHTML();
+  } else {
+    const rate = (h, r) => { if (!h.r){ applyRating(h.it, r); h.r = r; } };
+    if (b.hasAttribute('data-rv-all')) review.items.forEach(h => rate(h, 'good'));
+    else rate(review.items[+b.dataset.rv], b.dataset.r);
+    saveReview(); renderReview();
+  }
+  return true;
 }
 function togglePause(){
   if (!ds.running || drill.timing === 'manual') return;
@@ -1377,14 +1423,18 @@ function tick(){
   if (drill.hide && !ds.revealed && p >= 0.5) reveal();   // timed challenge: reveal halfway
   $('#rdBar').style.width = p * 100 + '%';
 }
-function rate(r){
-  if (!ds.running || !ds.cur || ds.rated) return;
-  const k = itemKey(ds.cur), st = dstats[k] || { w:1, good:0, shaky:0, miss:0 };
-  st[r]++; st.it = ds.cur;
+// Record a rating: updates the item's counts and its draw weight (missed/shaky items come up more)
+function applyRating(it, r){
+  const k = itemKey(it), st = dstats[k] || { w:1, good:0, shaky:0, miss:0 };
+  st[r]++; st.it = it;
   st.w = r === 'good' ? Math.max(0.4, st.w * 0.7) : r === 'shaky' ? Math.min(8, st.w * 1.4 + 0.3) : Math.min(8, st.w * 2 + 0.5);
   dstats[k] = st; setProgress('drillStats', dstats);
-  ds.rated = r; ds.tally[r]++; ds.history[ds.history.length - 1].r = r;
   renderWeak();
+}
+function rate(r){
+  if (!ds.running || !ds.cur || ds.rated || drill.rateLater) return;
+  applyRating(ds.cur, r);
+  ds.rated = r; ds.history[ds.history.length - 1].r = r;
   if (!ds.revealed) return reveal();
   renderStage();
   if (drill.timing === 'manual'){ const cur = ds.cur; setTimeout(() => { if (ds.running && ds.cur === cur) advance(); }, 300); }
@@ -1408,6 +1458,7 @@ function renderDrillSettings(){
   $('#rdBpm').value = drill.bpm; $('#rdBpmVal').textContent = drill.bpm; $('#rdBars').value = drill.bars; $('#rdMetro').checked = drill.metro;
   $('#rdSecsL').hidden = drill.timing !== 'seconds'; $('#rdBeatsL').hidden = drill.timing !== 'beats';
   $('#rdLen').value = drill.len; $('#rdHide').checked = drill.hide; $('#rdSound').checked = drill.sound; $('#rdWeighted').checked = drill.weighted;
+  $('#rdRateLater').checked = drill.rateLater;
   const n = buildPool().length;
   $('#rdPoolSize').textContent = `${n} possible item${n === 1 ? '' : 's'} in the hat.`;
   store('drill2', drill);
@@ -1424,7 +1475,7 @@ $('#rdPresets').addEventListener('click', e => {
   Object.assign(drill, JSON.parse(JSON.stringify(PRESETS[b.dataset.p][1]))); renderDrillSettings();
 });
 const DRILL_FIELDS = { rdRoots:'roots', rdScalePos:'scalePos', rdProgMode:'progMode', rdProgSev:'progSev', rdTiming:'timing', rdSecs:'secs',
-  rdBpm:'bpm', rdBars:'bars', rdMetro:'metro', rdLen:'len', rdHide:'hide', rdSound:'sound', rdWeighted:'weighted' };
+  rdBpm:'bpm', rdBars:'bars', rdMetro:'metro', rdLen:'len', rdHide:'hide', rdSound:'sound', rdWeighted:'weighted', rdRateLater:'rateLater' };
 Object.entries(DRILL_FIELDS).forEach(([id, key]) => $('#'+id).addEventListener(id === 'rdBpm' ? 'input' : 'change', e => {
   const el = e.target;
   drill[key] = el.type === 'checkbox' ? el.checked : id === 'rdBpm' ? +el.value : el.value;
@@ -1441,6 +1492,7 @@ $('#rdEnd').addEventListener('click', endSession);
 $('#rdRate').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) rate(b.dataset.r); });
 $('#rdReset').addEventListener('click', () => { if (confirm('Clear all drill ratings?')){ dstats = {}; setProgress('drillStats', dstats); renderWeak(); } });
 $('#rdOut').addEventListener('click', e => {
+  if (onReviewClick(e)) return;
   if (e.target.id === 'rdReveal') return reveal();
   const g = e.target.closest('[data-midi]'); if (g) return pluck(+g.dataset.midi, null, 0.4);
   const go = e.target.closest('[data-go]'), it = ds.cur; if (!go || !it) return;
@@ -1448,7 +1500,7 @@ $('#rdOut').addEventListener('click', e => {
   else { sc.type = it.type; sc.root = it.root; sc.range = it.range; $('#sType').value = sc.type; $('#sRange').value = sc.range; renderScale(); showTab('scales'); }
 });
 document.addEventListener('keydown', e => {
-  if ($('#tab-drill').hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
+  if ($('#tab-drill').hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, select, textarea')) return;
   if (e.code === 'Space'){
     e.preventDefault();
     if (!ds.running) startSession();
