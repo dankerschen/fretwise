@@ -289,6 +289,16 @@ dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1
         <label>Chord A <select id="chA"></select></label>
         <label>Chord B <select id="chB"></select></label>
       </div>
+      <div class="controls">
+        <button class="btn" id="chRand">🎲 Random pair</button>
+        <label>from <select id="chPool">
+          <option value="open">Open major &amp; minor</option>
+          <option value="open7">Open chords incl. 7ths</option>
+          <option value="all">Everything (incl. barre)</option>
+        </select></label>
+        <label><input type="checkbox" id="chPrefer"> Favour pairs I haven't mastered</label>
+        <label><input type="checkbox" id="chAuto"> New pair after each round</label>
+      </div>
       <div class="change-cards" id="chCards"></div>
       <div class="timer" id="chTimer">60</div>
       <div class="controls" style="justify-content:center">
@@ -1096,9 +1106,39 @@ $('#chSave').addEventListener('click', () => {
   const best = { ...getProgress('best', {}) }, k = pairKey(), prev = best[k] || 0;
   if (n > prev){ best[k] = n; setProgress('best', best); }
   $('#chResult').hidden = true; $('#chTimer').textContent = '60';
-  renderChanges();
-  $('#chBest').innerHTML = (n > prev ? `🎉 New best! ` : `You made ${n}. `) + $('#chBest').innerHTML;
+  const note = (n > prev ? `🎉 New best for <b>${k}</b>! ` : `You made ${n} on <b>${k}</b>. `);
+  if (chRand.auto) randomPair(); else renderChanges();
+  $('#chBest').innerHTML = note + (chRand.auto ? 'Next pair: ' : '') + $('#chBest').innerHTML;
 });
+
+// Random pair picker
+const chRand = Object.assign({ pool:'open', prefer:true, auto:false }, load('chRand', {}));
+const CH_POOLS = { open:['major','minor'], open7:['major','minor','dom7','maj7','min7'], all:null };
+function randomPair(){
+  const cats = CH_POOLS[chRand.pool], idx = LIB.map((c,i) => i).filter(i => !cats || cats.includes(LIB[i].cat));
+  const cur = pairKey(), best = getProgress('best', {}), pairs = [];
+  for (let a = 0; a < idx.length; a++) for (let b = a + 1; b < idx.length; b++){
+    const A = LIB[idx[a]], B = LIB[idx[b]];
+    if (chordName(A) === chordName(B)) continue;          // e.g. the open and barre Fmaj7
+    const key = [chordName(A), chordName(B)].sort().join(' ↔ ');
+    if (key !== cur) pairs.push({ a:idx[a], b:idx[b], key });
+  }
+  if (!pairs.length) return;
+  let p = pick(pairs);
+  if (chRand.prefer){
+    // Untried pairs and low scores come up more; ~60 changes/min counts as mastered
+    const w = pairs.map(x => best[x.key] ? Math.max(0.15, 1 - best[x.key] / 60) : 1);
+    let r = Math.random() * w.reduce((s,v) => s + v, 0);
+    p = pairs.find((x,i) => (r -= w[i]) <= 0) || p;
+  }
+  const [a, b] = Math.random() < 0.5 ? [p.a, p.b] : [p.b, p.a];
+  $('#chA').value = a; $('#chB').value = b; renderChanges();
+}
+$('#chPool').value = chRand.pool; $('#chPrefer').checked = chRand.prefer; $('#chAuto').checked = chRand.auto;
+$('#chPool').addEventListener('change', e => { chRand.pool = e.target.value; store('chRand', chRand); });
+$('#chPrefer').addEventListener('change', e => { chRand.prefer = e.target.checked; store('chRand', chRand); });
+$('#chAuto').addEventListener('change', e => { chRand.auto = e.target.checked; store('chRand', chRand); });
+$('#chRand').addEventListener('click', () => { if (!chTimer) randomPair(); });
 
 /* ================= Random selectors ================= */
 const pick = a => a[Math.floor(Math.random() * a.length)];
