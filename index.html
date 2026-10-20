@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fretwise Guitar Trainer</title>
+<style>
+:root{
+  --bg:#f7f4ee; --surface:#ffffff; --surface2:#efe8dc; --text:#2a2420; --muted:#7a6f66;
+  --line:#e0d7ca; --fret:#c4b6a3; --accent:#c8641e; --accent-soft:#f6e1cf;
+  --good:#2f8a4c; --bad:#c0392b; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17140f; --surface:#211d17; --surface2:#2c261f; --text:#efe7dc; --muted:#a39686;
+    --line:#3a322a; --fret:#5e5246; --accent:#f08a3c; --accent-soft:#45301e;
+    --good:#5cc27b; --bad:#ef6b5b; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17140f; --surface:#211d17; --surface2:#2c261f; --text:#efe7dc; --muted:#a39686;
+  --line:#3a322a; --fret:#5e5246; --accent:#f08a3c; --accent-soft:#45301e;
+  --good:#5cc27b; --bad:#ef6b5b; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+button,select,input{font:inherit;color:inherit}
+header.top{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px 24px;padding:10px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:20px;font-weight:700}
+.brand h1{font-size:1.15rem;margin:0;letter-spacing:-.01em}
+.brand p{margin:0;font-size:.78rem;color:var(--muted)}
+.tabs{display:flex;gap:4px;overflow-x:auto;max-width:100%}
+.tabs button{border:0;background:transparent;padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;color:var(--muted);font-weight:600}
+.tabs button:hover{color:var(--text);background:var(--surface2)}
+.tabs button.on{background:var(--text);color:var(--bg)}
+.icon-btn{border:1px solid var(--line);background:var(--surface);width:36px;height:36px;border-radius:10px;cursor:pointer}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 80px}
+h2{font-size:1.1rem;margin:28px 0 10px}
+h3{font-size:.95rem;margin:16px 0 8px}
+p{margin:6px 0}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:12px 0}
+.controls label{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}
+select,input[type=number]{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--text)}
+input[type=range]{accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.07)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:999px;cursor:pointer;font-size:.85rem}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:12px}
+.chord-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s;width:100%}
+.chord-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.cc-name{font-weight:700;font-size:1.15rem;line-height:1.2}
+.cc-sub{font-size:.7rem;color:var(--muted);min-height:1em}
+.cc-ivl{font-size:.72rem;color:var(--muted);margin-top:2px}
+svg.cd{display:block;margin:4px auto 0}
+.cd-fret{stroke:var(--fret);stroke-width:1}
+.cd-string{stroke:var(--muted);stroke-width:1}
+.cd-nut{fill:var(--text)}
+.cd-dot{fill:var(--text)}
+.cd-dot.root{fill:var(--accent)}
+.cd-fg{fill:var(--bg);font-size:9.5px;font-weight:700}
+.cd-open{fill:none;stroke:var(--text);stroke-width:1.3}
+.cd-open.root{stroke:var(--accent);stroke-width:2.2}
+.cd-x{fill:var(--muted);font-size:13px}
+.cd-barre{fill:var(--text)}
+.cd-base{fill:var(--muted);font-size:10px}
+.cd-note{fill:var(--muted);font-size:8.5px}
+.cd-note.root{fill:var(--accent);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:.84rem;color:var(--muted)}
+.legend b{color:var(--text)}
+.sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+.note-chip{display:inline-flex;flex-direction:column;align-items:center;min-width:44px;padding:5px 8px;border-radius:10px;background:var(--surface2);margin:0 6px 6px 0}
+.note-chip b{font-size:1rem}
+.note-chip small{font-size:.72rem;color:var(--muted)}
+.note-chip.root{background:var(--accent);color:#fff}
+.note-chip.root small{color:#fff;opacity:.85}
+.finder{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:16px;align-items:start}
+.finder .big{font-size:2rem;font-weight:800;line-height:1.1}
+@media (max-width:640px){.finder{grid-template-columns:1fr}}
+.dia{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.dia-chip{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.dia-chip:hover{border-color:var(--accent)}
+.dia-chip.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.dia-chip .num{font-size:.75rem;color:var(--muted);font-weight:600}
+.dia-chip .nm{font-weight:700}
+.prog-slot{display:flex;flex-direction:column;align-items:center;gap:4px}
+.prog-slot .numeral{font-weight:700;color:var(--muted);font-size:.9rem}
+.prog-slot.active .numeral{color:var(--accent)}
+.prog-slot.active .chord-card{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.transport{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.beat{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.3rem;min-width:2.2em;color:var(--accent)}
+.fb-wrap{overflow-x:auto;padding-bottom:6px;margin-top:10px}
+svg.fb{display:block}
+.fb-wood{fill:var(--surface2)}
+.fb-fret{stroke:var(--fret);stroke-width:2}
+.fb-nut{fill:var(--text)}
+.fb-string{stroke:var(--muted)}
+.fb-inlay{fill:var(--line)}
+.fb-num{fill:var(--muted);font-size:10px}
+.fb-note{cursor:pointer}
+.fb-note circle{fill:var(--text);transition:fill .1s}
+.fb-note text{fill:var(--bg);font-size:9px;font-weight:700;pointer-events:none}
+.fb-note.root circle{fill:var(--accent)}
+.fb-note.dim{opacity:.12}
+.fb-note.playing circle{fill:var(--good)}
+.fb-note:hover circle{stroke:var(--accent);stroke-width:2}
+.steps{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:.85rem}
+.steps span{padding:2px 8px;border-radius:6px;background:var(--surface2);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.two{grid-template-columns:1fr}}
+.quiz-card{max-width:180px;margin:6px auto}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.opt{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px;cursor:pointer;font-weight:700;font-size:1.05rem}
+.opt:hover{border-color:var(--accent)}
+.opt.right{background:var(--good);border-color:var(--good);color:#fff}
+.opt.wrong{background:var(--bad);border-color:var(--bad);color:#fff}
+.feedback{min-height:1.5em;margin-top:10px;font-weight:600}
+.timer{font-size:3rem;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.change-cards{display:flex;justify-content:center;gap:12px}
+.change-cards .chord-card{max-width:150px}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--text);padding:20px 22px;width:min(380px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h3{margin:0 0 8px}
+dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--text)}
+.dlg-close{position:absolute;top:10px;right:10px;margin:0}
+.dlg-close .icon-btn{width:30px;height:30px}
+.btn.wide{width:100%;margin-top:6px}
+.dlg-row{display:flex;gap:8px;margin-top:4px}
+.dlg-row .btn{flex:1}
+.or{text-align:center;color:var(--muted);font-size:.8rem;margin:14px 0 4px}
+.linkish{background:none;border:0;color:var(--accent);cursor:pointer;padding:6px 0;font-size:.85rem}
+.drill-layout{display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:16px;align-items:start}
+@media (max-width:860px){.drill-layout{grid-template-columns:1fr}}
+.drill-settings h3:first-child{margin-top:0}
+.field{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted);margin:8px 0}
+.stage-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.bar{height:6px;border-radius:3px;background:var(--surface2);margin:8px 0 14px;overflow:hidden}
+.bar div{height:100%;width:0;background:var(--accent)}
+#rdOut{min-height:220px}
+.rd-head .big{font-size:2.2rem;font-weight:800;line-height:1.1}
+.rd-head .sub{color:var(--muted);margin-top:2px}
+.rd-body{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:14px}
+.rd-body .chord-card{width:150px}
+.rd-body .fb-wrap{width:100%;margin-top:0}
+.rd-prog{display:flex;flex-wrap:wrap;gap:10px}
+.rd-prog .chord-card{width:128px}
+.rd-prog .chord-card.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.reveal-btn{margin-top:18px}
+.stage-ctl{margin-top:16px}
+.rate{display:inline-flex;gap:6px;flex-wrap:wrap}
+.rate .btn.chosen{color:#fff}
+.r-good.chosen{background:var(--good);border-color:var(--good)}
+.r-shaky.chosen{background:var(--accent);border-color:var(--accent)}
+.r-miss.chosen{background:var(--bad);border-color:var(--bad)}
+.history{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.history span{font-size:.75rem;padding:2px 8px;border-radius:999px;background:var(--surface2);border:1px solid transparent}
+.history .good{border-color:var(--good)} .history .shaky{border-color:var(--accent)} .history .miss{border-color:var(--bad)}
+.weak{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.88rem}
+.weak:first-child{border-top:0}
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+.summary div{background:var(--surface2);border-radius:12px;padding:10px 16px;text-align:center;min-width:90px}
+.summary b{display:block;font-size:1.6rem}
+.info-list{margin:8px 0 0;padding-left:18px;font-size:.88rem}
+.info-list li{margin:3px 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div class="logo">♪</div><div><h1>Fretwise</h1><p>Chords · Progressions · Scales</p></div></div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="chords">Chord charts</button>
+    <button data-tab="progressions">Progressions</button>
+    <button data-tab="scales">Scales</button>
+    <button data-tab="practice">Practice</button>
+    <button data-tab="drill">Drill</button>
+  </nav>
+  <button class="btn" id="acctBtn" hidden>Sign in</button>
+  <select id="namesSel" title="Note names"><option value="en">C D E</option><option value="fr">Do Ré Mi</option></select>
+  <button class="icon-btn" id="themeBtn" title="Toggle light/dark">◐</button>
+</header>
+
+<main>
+<!-- ============ CHORDS ============ -->
+<section class="tab" id="tab-chords">
+  <div class="panel">
+    <div class="legend">
+      <span><b>Reading a chart:</b> vertical lines are strings, low E on the left → high e on the right.</span>
+      <span><span class="sw" style="background:var(--text)"></span>finger (1 index … 4 pinky)</span>
+      <span><span class="sw" style="background:var(--accent)"></span>root note</span>
+      <span>○ open string · × don't play · bar = barre · “3fr” = starting fret</span>
+      <span><b>Click any chord to hear it.</b></span>
+    </div>
+  </div>
+  <div class="chips" id="catChips"></div>
+  <div class="grid" id="chordGrid"></div>
+
+  <h2>Chord finder — any root, any type</h2>
+  <div class="controls">
+    <label>Root <select id="cfRoot"></select></label>
+    <label>Type <select id="cfQual"></select></label>
+    <button class="btn" id="cfRand">🎲 Random chord</button>
+  </div>
+  <div id="cfOut"></div>
+</section>
+
+<!-- ============ PROGRESSIONS ============ -->
+<section class="tab" id="tab-progressions" hidden>
+  <div class="controls">
+    <label>Key <select id="pKey"></select></label>
+    <label>Mode <select id="pMode"><option value="major">Major</option><option value="minor">Minor</option></select></label>
+    <label><input type="checkbox" id="pSev"> Use 7th chords</label>
+  </div>
+  <div class="chips" id="pList"></div>
+  <p class="muted small" id="pDesc"></p>
+
+  <h3>Chords in this key <span class="muted small" id="diaHint">— click to hear</span></h3>
+  <div id="pDia"></div>
+  <div id="customBtns" class="controls" hidden>
+    <button class="btn" id="cUndo">Remove last</button>
+    <button class="btn" id="cClear">Clear</button>
+  </div>
+
+  <div class="panel transport" style="margin:14px 0">
+    <button class="btn primary" id="pPlay">▶ Play</button>
+    <span class="beat" id="pBeat">–</span>
+    <label class="muted small">Tempo <input type="range" id="pTempo" min="40" max="180" value="80"> <span id="pTempoVal">80</span> bpm</label>
+    <label class="muted small">Strum <select id="pPattern"></select></label>
+    <label class="muted small"><input type="checkbox" id="pMetro" checked> Click</label>
+    <label class="muted small"><input type="checkbox" id="pLoop" checked> Loop</label>
+  </div>
+  <div class="grid" id="pGrid"></div>
+</section>
+
+<!-- ============ SCALES ============ -->
+<section class="tab" id="tab-scales" hidden>
+  <div class="controls">
+    <label>Root <select id="sRoot"></select></label>
+    <label>Scale <select id="sType"></select></label>
+    <label>Show <select id="sLabels"><option value="notes">Note names</option><option value="ivl">Intervals</option></select></label>
+    <label>Position <select id="sRange"></select></label>
+    <button class="btn" id="sRand">🎲 Random scale</button>
+    <button class="btn primary" id="sPlay">▶ Play scale</button>
+  </div>
+  <div class="panel">
+    <div id="sNotes"></div>
+    <div class="steps" id="sSteps"></div>
+    <p class="small" id="sDesc"></p>
+    <div id="sModes"></div>
+  </div>
+  <div class="fb-wrap" id="sBoard"></div>
+  <p class="muted small">Click any dot to hear that note. Use “Position” to practise the scale in one area of the neck.</p>
+  <div id="sDia"></div>
+</section>
+
+<!-- ============ PRACTICE ============ -->
+<section class="tab" id="tab-practice" hidden>
+  <div class="two">
+    <div class="panel">
+      <h3 style="margin-top:0">Name that chord</h3>
+      <div class="controls">
+        <label>Chords <select id="qPool">
+          <option value="open">Open major &amp; minor</option>
+          <option value="sev">7th chords</option>
+          <option value="barre">Barre &amp; movable</option>
+          <option value="all" selected>Everything</option>
+        </select></label>
+        <span class="muted small" id="qScore">Score 0/0</span>
+      </div>
+      <div class="quiz-card" id="qCard"></div>
+      <p class="muted small" style="text-align:center">Tap the diagram to hear it</p>
+      <div class="opts" id="qOpts"></div>
+      <div class="feedback" id="qFeedback"></div>
+      <button class="btn" id="qNext" hidden>Next →</button>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">One-minute chord changes</h3>
+      <p class="small muted">Switch between two chords as many times as you can in 60 seconds. Count each change, then log your score. Beat your best to build fluid transitions.</p>
+      <div class="controls">
+        <label>Chord A <select id="chA"></select></label>
+        <label>Chord B <select id="chB"></select></label>
+      </div>
+      <div class="change-cards" id="chCards"></div>
+      <div class="timer" id="chTimer">60</div>
+      <div class="controls" style="justify-content:center">
+        <button class="btn primary" id="chStart">Start</button>
+      </div>
+      <div class="controls" id="chResult" hidden style="justify-content:center">
+        <label>Changes made <input type="number" id="chCount" min="0" max="300" style="width:80px"></label>
+        <button class="btn" id="chSave">Save</button>
+      </div>
+      <p style="text-align:center" class="small" id="chBest"></p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ DRILL ============ -->
+<section class="tab" id="tab-drill" hidden>
+  <div class="panel">
+    <span class="muted small">Quick presets</span>
+    <div class="chips" id="rdPresets"></div>
+  </div>
+  <div class="drill-layout">
+    <div class="panel drill-settings">
+      <h3>What to practise</h3>
+      <div class="chips" id="rdKinds"></div>
+      <label class="field">Roots / keys <select id="rdRoots">
+        <option value="open">Open chords only (beginner)</option>
+        <option value="nat">Natural notes (C D E F G A B)</option>
+        <option value="all">All 12</option>
+      </select></label>
+      <div id="rdChordRow"><span class="muted small">Chord types</span><div class="chips" id="rdChordTypes"></div></div>
+      <div id="rdScaleRow"><span class="muted small">Scales</span><div class="chips" id="rdScaleTypes"></div>
+        <label class="field"><input type="checkbox" id="rdScalePos"> Random neck position</label></div>
+      <div id="rdProgRow"><label class="field">Progression keys <select id="rdProgMode">
+        <option value="both">Major &amp; minor</option><option value="major">Major only</option><option value="minor">Minor only</option>
+      </select></label>
+        <label class="field"><input type="checkbox" id="rdProgSev"> Use 7th chords</label></div>
+
+      <h3>Timing</h3>
+      <label class="field">Advance <select id="rdTiming">
+        <option value="manual">When I press Next</option>
+        <option value="seconds">Every few seconds</option>
+        <option value="beats">With the metronome (bars)</option>
+      </select></label>
+      <label class="field" id="rdSecsL">Every <select id="rdSecs"><option>5</option><option>10</option><option>15</option><option>20</option><option>30</option><option>45</option><option>60</option></select> seconds</label>
+      <div id="rdBeatsL">
+        <label class="field">Tempo <input type="range" id="rdBpm" min="40" max="200"> <span id="rdBpmVal"></span> bpm</label>
+        <label class="field"><select id="rdBars"><option>1</option><option>2</option><option>4</option><option>8</option></select> bars (4/4) per item</label>
+        <p class="muted small">Progressions get one bar per chord and strum along with you.</p>
+        <label class="field"><input type="checkbox" id="rdMetro"> Metronome click</label>
+      </div>
+
+      <h3>Session</h3>
+      <label class="field">Length <select id="rdLen"><option value="0">Endless</option><option value="10">10 items</option><option value="20">20 items</option><option value="50">50 items</option></select></label>
+      <label class="field"><input type="checkbox" id="rdHide"> Challenge mode — hide the answer until revealed</label>
+      <label class="field"><input type="checkbox" id="rdSound"> Play the sound when drawn</label>
+      <label class="field"><input type="checkbox" id="rdWeighted"> Focus on weak spots</label>
+      <p class="muted small" id="rdPoolSize"></p>
+    </div>
+
+    <div>
+      <div class="panel stage">
+        <div class="stage-top"><span id="rdCount" class="muted small"></span><span id="rdUpNext" class="muted small"></span></div>
+        <div class="bar" id="rdBarWrap"><div id="rdBar"></div></div>
+        <div id="rdOut"></div>
+        <div class="controls stage-ctl">
+          <button class="btn primary" id="rdMain">▶ Start session</button>
+          <button class="btn" id="rdSkip" hidden>Skip ⏭</button>
+          <button class="btn" id="rdEnd" hidden>End</button>
+          <span class="rate" id="rdRate" hidden>
+            <button class="btn r-good" data-r="good">✓ Got it</button>
+            <button class="btn r-shaky" data-r="shaky">~ Shaky</button>
+            <button class="btn r-miss" data-r="miss">✗ Missed</button>
+          </span>
+        </div>
+        <p class="muted small">Keyboard: <b>Space</b> start / reveal / next · <b>1 2 3</b> rate · <b>P</b> pause</p>
+        <div class="history" id="rdHistory"></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <div class="stage-top"><h3 style="margin:0">Weak spots</h3><button class="btn" id="rdReset">Reset stats</button></div>
+        <p class="muted small">Rate items as you go. Missed and shaky items come up more often when “Focus on weak spots” is on.</p>
+        <div id="rdWeak"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<dialog id="acctDlg">
+  <form method="dialog" class="dlg-close"><button class="icon-btn" aria-label="Close">✕</button></form>
+  <div id="acctBody"></div>
+</dialog>
+
+<script src="firebase-config.js"></script>
+<script>
+'use strict';
+/* ================= Music theory core ================= */
+const LETTERS = 'CDEFGAB';
+const NAT = [0,2,4,5,7,9,11];             // natural-note pitch classes = major-scale semitones
+const OPEN_PC = [4,9,2,7,11,4];           // E A D G B E (low → high)
+const OPEN_MIDI = [40,45,50,55,59,64];
+const ROMAN = ['I','II','III','IV','V','VI','VII'];
+const ROOTS_MAJ = ['C','Db','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+const ROOTS_MIN = ['C','C#','D','Eb','E','F','F#','G','G#','A','Bb','B'];
+const ROOTS_ALL = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'];
+
+function parse(n){
+  const li = LETTERS.indexOf(n[0]); let acc = 0;
+  for (const c of n.slice(1)) acc += c === '#' ? 1 : c === 'b' ? -1 : 0;
+  return { li, pc: (NAT[li] + acc + 24) % 12 };
+}
+// Spell the note `semis` above root, using the letter of scale degree `degree`
+function spell(root, degree, semis){
+  const r = parse(root), li = (r.li + degree - 1) % 7, target = (r.pc + semis) % 12;
+  let acc = ((target - NAT[li]) % 12 + 12) % 12; if (acc > 6) acc -= 12;
+  return LETTERS[li] + (acc > 0 ? '#'.repeat(acc) : 'b'.repeat(-acc));
+}
+let NAMES = 'en';                         // 'en' = C D E…, 'fr' = Do Ré Mi…
+const FR = { C:'Do', D:'Ré', E:'Mi', F:'Fa', G:'Sol', A:'La', B:'Si' };
+const pretty = n => (NAMES === 'fr' ? FR[n[0]] : n[0]) + n.slice(1).replace(/##/g,'𝄪').replace(/#/g,'♯').replace(/b/g,'♭');
+function ivl(deg, semis){ const d = semis - NAT[deg-1]; return (d < 0 ? '♭'.repeat(-d) : '♯'.repeat(d)) + deg; }
+
+const QUAL = {
+  '':   { sfx:'',     label:'Major',            tones:[[1,0],[3,4],[5,7]],        info:'Root, major 3rd and 5th. Bright, stable, “home”.' },
+  m:    { sfx:'m',    label:'Minor',            tones:[[1,0],[3,3],[5,7]],        info:'Lower the 3rd of a major chord by a half step. Darker, sadder.' },
+  '7':  { sfx:'7',    label:'Dominant 7th',     tones:[[1,0],[3,4],[5,7],[7,10]], info:'Major triad + ♭7. Bluesy and restless — it wants to resolve (V7 → I). The backbone of blues.' },
+  maj7: { sfx:'maj7', label:'Major 7th',        tones:[[1,0],[3,4],[5,7],[7,11]], info:'Major triad + major 7th. Lush, dreamy, jazzy. Used on I and IV.' },
+  m7:   { sfx:'m7',   label:'Minor 7th',        tones:[[1,0],[3,3],[5,7],[7,10]], info:'Minor triad + ♭7. Smooth and mellow — the ii in a ii–V–I.' },
+  m7b5: { sfx:'m7♭5', label:'Half-diminished (ø7)', tones:[[1,0],[3,3],[5,6],[7,10]], info:'Diminished triad + ♭7. Tense; the vii in major keys and ii in minor keys.' },
+  dim:  { sfx:'°',    label:'Diminished',       tones:[[1,0],[3,3],[5,6]],        info:'Minor 3rd + ♭5. Unstable and tense; the vii chord of a major key.' },
+};
+const chordTones = (root, q) => QUAL[q].tones.map(([d,s]) => ({ name: spell(root,d,s), pc:(parse(root).pc+s)%12, ivl: ivl(d,s) }));
+const chordName = c => pretty(c.root) + QUAL[c.q].sfx;
+
+/* ================= Chord library ================= */
+// frets low E → high e (-1 = muted), fingers (0 = none), optional barre {fret, from, to}
+const OPEN_DATA = [
+  ['C','',  [-1,3,2,0,1,0], [0,3,2,0,1,0]],
+  ['A','',  [-1,0,2,2,2,0], [0,0,1,2,3,0]],
+  ['G','',  [3,2,0,0,0,3],  [2,1,0,0,0,3]],
+  ['E','',  [0,2,2,1,0,0],  [0,2,3,1,0,0]],
+  ['D','',  [-1,-1,0,2,3,2],[0,0,0,1,3,2]],
+  ['A','m', [-1,0,2,2,1,0], [0,0,2,3,1,0]],
+  ['E','m', [0,2,2,0,0,0],  [0,2,3,0,0,0]],
+  ['D','m', [-1,-1,0,2,3,1],[0,0,0,2,3,1]],
+  ['E','7', [0,2,0,1,0,0],  [0,2,0,1,0,0]],
+  ['A','7', [-1,0,2,0,2,0], [0,0,2,0,3,0]],
+  ['D','7', [-1,-1,0,2,1,2],[0,0,0,2,1,3]],
+  ['G','7', [3,2,0,0,0,1],  [3,2,0,0,0,1]],
+  ['C','7', [-1,3,2,3,1,0], [0,3,2,4,1,0]],
+  ['B','7', [-1,2,1,2,0,2], [0,2,1,3,0,4]],
+  ['C','maj7',[-1,3,2,0,0,0],[0,3,2,0,0,0]],
+  ['A','maj7',[-1,0,2,1,2,0],[0,0,2,1,3,0]],
+  ['D','maj7',[-1,-1,0,2,2,2],[0,0,0,1,2,3]],
+  ['E','maj7',[0,2,1,1,0,0], [0,3,1,2,0,0]],
+  ['F','maj7',[-1,-1,3,2,1,0],[0,0,3,2,1,0]],
+  ['G','maj7',[3,2,0,0,0,2], [3,2,0,0,0,1]],
+  ['A','m7',[-1,0,2,0,1,0], [0,0,2,0,1,0]],
+  ['E','m7',[0,2,2,0,3,0],  [0,1,2,0,4,0]],
+  ['D','m7',[-1,-1,0,2,1,1],[0,0,0,2,1,1], {fret:1,from:4,to:5}],
+  ['B','m7',[-1,2,0,2,0,2], [0,1,0,2,0,3]],
+];
+const CAT_OF = { '':'major', m:'minor', '7':'dom7', maj7:'maj7', m7:'min7' };
+const OPEN = OPEN_DATA.map(([root,q,frets,fingers,barre]) => ({ root, q, frets, fingers, barre: barre||null, cat: CAT_OF[q], tag:'Open' }));
+
+// Movable shapes: offsets from the root fret (null = muted)
+const SHAPES = {
+  E: { // root on 6th string
+    '':   { o:[0,2,2,1,0,0],       f:[1,3,4,2,1,1], b:[0,5] },
+    m:    { o:[0,2,2,0,0,0],       f:[1,3,4,1,1,1], b:[0,5] },
+    '7':  { o:[0,2,0,1,0,0],       f:[1,3,1,2,1,1], b:[0,5] },
+    maj7: { o:[0,null,1,1,0,null], f:[1,0,3,4,2,0] },
+    m7:   { o:[0,2,0,0,0,0],       f:[1,3,1,1,1,1], b:[0,5] },
+    m7b5: { o:[0,null,0,0,-1,null],f:[2,0,3,4,1,0], min:1 },
+    dim:  { o:[0,1,2,0,null,null], f:[1,2,3,1,0,0], b:[0,3] },
+  },
+  A: { // root on 5th string
+    '':   { o:[null,0,2,2,2,0],    f:[0,1,2,3,4,1], b:[1,5] },
+    m:    { o:[null,0,2,2,1,0],    f:[0,1,3,4,2,1], b:[1,5] },
+    '7':  { o:[null,0,2,0,2,0],    f:[0,1,3,1,4,1], b:[1,5] },
+    maj7: { o:[null,0,2,1,2,0],    f:[0,1,3,2,4,1], b:[1,5] },
+    m7:   { o:[null,0,2,0,1,0],    f:[0,1,3,1,2,1], b:[1,5] },
+    m7b5: { o:[null,0,1,0,1,null], f:[0,1,3,2,4,0] },
+    dim:  { o:[null,0,1,2,1,null], f:[0,1,2,4,3,0] },
+  }
+};
+// up: the same shape an octave higher (only when that still fits below fret ~15)
+function shapeVoicing(root, q, key, up = false){
+  const sh = SHAPES[key][q]; if (!sh) return null;
+  let r = (parse(root).pc - (key === 'E' ? 4 : 9) + 12) % 12;
+  if (sh.min && r < sh.min) r += 12;
+  if (up){ if (r > 3) return null; r += 12; }
+  return {
+    root, q,
+    frets: sh.o.map(o => o === null ? -1 : o + r),
+    fingers: sh.f.slice(),
+    barre: sh.b && r > 0 ? { fret:r, from:sh.b[0], to:sh.b[1] } : null,
+    tag: key === 'E' ? 'E-shape · root on 6th' : 'A-shape · root on 5th',
+  };
+}
+function voicings(root, q){
+  const pc = parse(root).pc, out = [], seen = new Set();
+  const add = v => { if (!v) return; const k = v.frets.join(); if (seen.has(k)) return; seen.add(k); out.push(v); };
+  OPEN.filter(c => c.q === q && parse(c.root).pc === pc).forEach(c => add({ ...c, root }));
+  const top = v => v ? Math.max(...v.frets) : 99;
+  [shapeVoicing(root,q,'E'), shapeVoicing(root,q,'A')].sort((a,b) => top(a) - top(b)).forEach(add);
+  return out;
+}
+const bestVoicing = (root, q) => voicings(root, q)[0];
+
+// Fret the hand sits at for a voicing (open chords count as 1st position)
+const handPos = v => v.tag === 'Open' ? 1 : Math.min(...v.frets.filter(f => f > 0));
+// Cost of moving the hand: shifts of 1–2 frets barely count, bigger jumps cost more
+const moveCost = (a, b) => { const d = Math.abs(handPos(a) - handPos(b)); return d <= 2 ? d * 0.3 : 0.6 + (d - 2); };
+// Open chords are easiest; movable shapes cost a little more the higher they sit
+const shapeCost = v => v.tag === 'Open' ? 0 : 1 + 0.1 * handPos(v);
+// Pick one voicing per chord so the whole progression (looping back to the start) stays in as few positions as possible
+function voiceLead(chords){
+  const cands = chords.map(({ root, q }) => {
+    const list = voicings(root, q), seen = new Set(list.map(v => v.frets.join()));
+    ['E','A'].forEach(k => { const v = shapeVoicing(root, q, k, true); if (v && !seen.has(v.frets.join())) list.push(v); });
+    return list;
+  });
+  if (!cands.length) return [];
+  let best = null;
+  for (const first of cands[0]){
+    // Viterbi over the rest, with the first chord fixed so the loop-back move can be costed
+    let layer = [{ v:first, cost:shapeCost(first), path:[first] }];
+    for (let i = 1; i < cands.length; i++){
+      layer = cands[i].map(v => {
+        const prev = layer.reduce((m, p) => p.cost + moveCost(p.v, v) < m.cost + moveCost(m.v, v) ? p : m);
+        return { v, cost: prev.cost + moveCost(prev.v, v) + shapeCost(v), path: [...prev.path, v] };
+      });
+    }
+    for (const end of layer){
+      const total = end.cost + (cands.length > 1 ? moveCost(end.v, first) : 0);
+      if (!best || total < best.total) best = { total, path:end.path };
+    }
+  }
+  return best.path;
+}
+
+const BARRE = [
+  ...['','m','7','maj7','m7','m7b5','dim'].map(q => shapeVoicing('F', q, 'E')),
+  ...['','m','7','maj7','m7','m7b5','dim'].map(q => shapeVoicing('B', q, 'A')),
+].map(c => ({ ...c, cat:'barre' }));
+const LIB = [...OPEN, ...BARRE];
+const CATS = [['all','All'],['major','Open major'],['minor','Open minor'],['dom7','Dominant 7th'],['maj7','Major 7th'],['min7','Minor 7th'],['barre','Barre & movable']];
+
+/* ================= SVG: chord diagram ================= */
+function chordSVG(ch, plain){
+  const sp = 17, fh = 21, left = 26, top = 30;
+  const fr = ch.frets.filter(f => f > 0), maxF = fr.length ? Math.max(...fr) : 0;
+  const base = maxF <= 4 ? 1 : Math.min(...fr);
+  const rows = Math.max(4, maxF - base + 1);
+  const W = left + 5*sp + 18, H = top + rows*fh + (plain ? 8 : 22);
+  const rootPc = parse(ch.root).pc, toneBy = {};
+  chordTones(ch.root, ch.q).forEach(t => toneBy[t.pc] = t);
+  let s = `<svg class="cd" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">`;
+  for (let j = 0; j <= rows; j++){ const y = top + j*fh; s += `<line x1="${left}" y1="${y}" x2="${left+5*sp}" y2="${y}" class="cd-fret"/>`; }
+  if (base === 1) s += `<rect x="${left-1}" y="${top-4}" width="${5*sp+2}" height="5" class="cd-nut"/>`;
+  else s += `<text x="${left-7}" y="${top+fh/2+4}" class="cd-base" text-anchor="end">${base}fr</text>`;
+  for (let i = 0; i < 6; i++){ const x = left + i*sp; s += `<line x1="${x}" y1="${top}" x2="${x}" y2="${top+rows*fh}" class="cd-string"/>`; }
+  ch.frets.forEach((f, i) => {
+    const x = left + i*sp, y = top - 13;
+    if (f < 0) s += `<text x="${x}" y="${y+4}" class="cd-x" text-anchor="middle">×</text>`;
+    else if (f === 0) s += `<circle cx="${x}" cy="${y}" r="4.5" class="cd-open${!plain && OPEN_PC[i] === rootPc ? ' root' : ''}"/>`;
+  });
+  const b = ch.barre;
+  if (b){ const y = top + (b.fret-base+.5)*fh, x1 = left + b.from*sp, x2 = left + b.to*sp;
+    s += `<rect x="${x1-7}" y="${y-7}" width="${x2-x1+14}" height="14" rx="7" class="cd-barre"/>`; }
+  ch.frets.forEach((f, i) => {
+    if (f <= 0) return;
+    const x = left + i*sp, y = top + (f-base+.5)*fh, fg = ch.fingers[i];
+    const isR = !plain && (OPEN_PC[i]+f) % 12 === rootPc;
+    const onBarre = b && f === b.fret && i >= b.from && i <= b.to && fg === 1;
+    if (onBarre && !isR) return;
+    s += `<circle cx="${x}" cy="${y}" r="7.2" class="cd-dot${isR ? ' root' : ''}"/>`;
+    if (fg) s += `<text x="${x}" y="${y+3.5}" class="cd-fg" text-anchor="middle">${fg}</text>`;
+  });
+  if (!plain) ch.frets.forEach((f, i) => {
+    if (f < 0) return;
+    const pc = (OPEN_PC[i]+f) % 12, t = toneBy[pc];
+    const label = t ? pretty(t.name) : '?';
+    s += `<text x="${left+i*sp}" y="${top+rows*fh+15}" class="cd-note${pc === rootPc ? ' root' : ''}" text-anchor="middle"${label.length > 2 ? ' style="font-size:7px"' : ''}>${label}</text>`;
+  });
+  return s + '</svg>';
+}
+function cardHTML(c, plain){
+  return `<button class="chord-card" data-frets="${c.frets}" title="Click to hear">
+    ${plain ? '' : `<div class="cc-name">${chordName(c)}</div><div class="cc-sub">${c.tag || ''}</div>`}
+    ${chordSVG(c, plain)}
+    ${plain ? '' : `<div class="cc-ivl">${chordTones(c.root,c.q).map(t => t.ivl).join(' · ')}</div>`}
+  </button>`;
+}
+
+/* ================= Audio (Karplus-Strong plucked string) ================= */
+let ctx = null, master = null;
+const bufCache = {}, voices = new Array(6).fill(null);
+function ac(){
+  if (!ctx){
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain(); master.gain.value = 0.7;
+    const comp = ctx.createDynamicsCompressor();
+    master.connect(comp); comp.connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx;
+}
+function ksBuffer(midi){
+  if (bufCache[midi]) return bufCache[midi];
+  const sr = ctx.sampleRate, f = 440 * 2 ** ((midi-69)/12), dur = 3;
+  const len = Math.floor(sr*dur), buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+  const N = Math.max(2, Math.round(sr/f)), ring = new Float32Array(N);
+  let prev = 0, mean = 0;
+  for (let i = 0; i < N; i++){ prev = prev*0.45 + (Math.random()*2-1)*0.55; ring[i] = prev; mean += prev; }
+  mean /= N; for (let i = 0; i < N; i++) ring[i] -= mean;
+  const decay = Math.pow(0.02, 1/(f*dur));
+  const fade = Math.floor(sr*0.3);
+  for (let i = 0, idx = 0; i < len; i++){
+    const nxt = idx + 1 === N ? 0 : idx + 1, v = ring[idx];
+    d[i] = i > len - fade ? v * (len - i) / fade : v;
+    ring[idx] = decay * 0.5 * (v + ring[nxt]); idx = nxt;
+  }
+  return bufCache[midi] = buf;
+}
+function muteString(i, t){
+  const v = voices[i]; if (!v) return;
+  try { v.g.gain.setTargetAtTime(0, t, 0.015); v.src.stop(t + 0.2); } catch(e){}
+  voices[i] = null;
+}
+function pluck(midi, t, gain, string){
+  ac(); t = t ?? ctx.currentTime + 0.01;
+  if (string != null) muteString(string, t);
+  const src = ctx.createBufferSource(), g = ctx.createGain();
+  src.buffer = ksBuffer(midi); g.gain.value = gain;
+  src.connect(g); g.connect(master); src.start(t);
+  if (string != null) voices[string] = { src, g };
+}
+function strum(frets, dir = 'D', vel = 1, t){
+  ac(); t = t ?? ctx.currentTime + 0.02;
+  let idx = [0,1,2,3,4,5].filter(i => frets[i] >= 0);
+  if (dir === 'D') [0,1,2,3,4,5].filter(i => frets[i] < 0).forEach(i => muteString(i, t));
+  if (dir === 'U'){ idx = idx.filter(i => i >= 2).reverse(); vel *= 0.6; }
+  const gap = dir === 'U' ? 0.012 : 0.022;
+  idx.forEach((i, k) => pluck(OPEN_MIDI[i] + frets[i], t + k*gap, 0.3*vel, i));
+}
+function click(t, accent){
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.value = accent ? 1700 : 1150;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(accent ? 0.3 : 0.15, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.06);
+}
+// Any element with data-frets strums on click
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-frets]');
+  if (el) strum(el.dataset.frets.split(',').map(Number));
+});
+
+/* ================= Helpers ================= */
+const $ = s => document.querySelector(s);
+const store = (k, v) => { try { localStorage.setItem('fretwise.'+k, JSON.stringify(v)); } catch(e){} };
+const load = (k, d) => { try { const v = localStorage.getItem('fretwise.'+k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } };
+const fillSelect = (sel, items, val) => { sel.innerHTML = items.map(([v,l]) => `<option value="${v}">${l}</option>`).join(''); if (val != null) sel.value = val; };
+const remap = (root, list) => list.find(r => parse(r).pc === parse(root).pc);
+const shuffle = a => { for (let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; } return a; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* ================= Progress storage =================
+   Guests: progress lives in this browser (localStorage).
+   Signed in: progress lives in the user's cloud document; the Firebase module at the end of the page
+   calls Fretwise.setAccount() with the loaded data and a save function. Settings always stay local. */
+const PROGRESS_KEYS = ['drillStats', 'best'];
+const account = { available:false, user:null, data:{}, saveFn:null, status:'' };
+let saveTimer = null;
+const getProgress = (k, d) => account.user ? (account.data[k] ?? d) : load(k, d);
+function setProgress(k, v){
+  if (!account.user) return store(k, v);
+  account.data[k] = v; queueSave();
+}
+function setSyncStatus(s){ account.status = s; renderAccount(); }
+function queueSave(){ clearTimeout(saveTimer); setSyncStatus('Saving…'); saveTimer = setTimeout(flushSave, 1200); }
+async function flushSave(){
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!account.user || !account.saveFn) return;
+  try { await account.saveFn(account.data); setSyncStatus('All progress saved'); }
+  catch(e){ setSyncStatus('Couldn’t save — check your connection'); }
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && saveTimer) flushSave(); });
+// Combine two progress records without losing anything: best scores keep the max, ratings add up
+function mergeProgress(a = {}, b = {}){
+  const best = { ...(a.best || {}) }, drillStats = { ...(a.drillStats || {}) };
+  Object.entries(b.best || {}).forEach(([k,v]) => best[k] = Math.max(best[k] || 0, v));
+  Object.entries(b.drillStats || {}).forEach(([k,s]) => {
+    const o = drillStats[k];
+    drillStats[k] = o ? { it:s.it, w:Math.max(o.w, s.w), good:o.good + s.good, shaky:o.shaky + s.shaky, miss:o.miss + s.miss } : s;
+  });
+  return { ...a, best, drillStats };
+}
+function setAccount(user, data, saveFn){
+  clearTimeout(saveTimer); saveTimer = null;
+  if (user){
+    Object.assign(account, { user, data: data || {}, saveFn, status:'All progress saved' });
+    // Progress made in this browser before signing in: offer (once per account) to bring it along
+    const guest = { drillStats: load('drillStats', {}), best: load('best', {}) };
+    const hasGuest = Object.keys(guest.drillStats).length + Object.keys(guest.best).length > 0;
+    if (hasGuest && !load('guestAsked.' + user.uid, false)){
+      store('guestAsked.' + user.uid, true);
+      if (confirm(`Add the progress saved in this browser to ${user.name}'s account?`)){
+        account.data = mergeProgress(account.data, guest);
+        PROGRESS_KEYS.forEach(k => { try { localStorage.removeItem('fretwise.' + k); } catch(e){} });
+        queueSave();
+      }
+    }
+  } else Object.assign(account, { user:null, data:{}, saveFn:null, status:'' });
+  dstats = getProgress('drillStats', {});
+  renderWeak(); renderChanges(); renderAccount();
+}
+
+/* ================= Account dialog ================= */
+const AUTH_ERRORS = {
+  'auth/invalid-credential':'Wrong email or password.', 'auth/wrong-password':'Wrong email or password.', 'auth/user-not-found':'No account with that email — try Create account.',
+  'auth/email-already-in-use':'That email already has an account — try Sign in.', 'auth/weak-password':'Password needs at least 6 characters.',
+  'auth/invalid-email':'That email address doesn’t look right.', 'auth/missing-password':'Enter a password.', 'auth/too-many-requests':'Too many attempts — wait a minute and try again.',
+  'auth/network-request-failed':'No connection — check your internet.', 'auth/unauthorized-domain':'This site isn’t authorised in Firebase yet (Authentication → Settings → Authorized domains).',
+  'auth/popup-blocked':'Your browser blocked the sign-in popup — allow popups for this site.',
+};
+function renderAccount(){
+  const btn = $('#acctBtn');
+  btn.hidden = !account.available;
+  btn.textContent = account.user ? '● ' + account.user.name.split(/[ @]/)[0] : 'Sign in';
+  btn.title = account.user ? 'Account' : 'Sign in to save progress across devices';
+  if (!$('#acctDlg').open) return;
+  $('#acctBody').innerHTML = account.user
+    ? `<h3>Your account</h3><p>Signed in as <b>${esc(account.user.name)}</b></p>
+       <p class="small muted">${esc(account.status)}</p>
+       <p class="small muted">Your drill ratings and best chord-change scores are saved to your account and follow you to any device.</p>
+       <button class="btn" data-act="signout">Sign out</button>`
+    : `<h3>Save your progress</h3>
+       <p class="small muted">Sign in to keep your drill ratings and best scores on any device. Without an account they're saved in this browser only.</p>
+       <button class="btn primary wide" data-act="google">Continue with Google</button>
+       <div class="or">or with email</div>
+       <input type="email" id="acEmail" placeholder="Email" autocomplete="email">
+       <input type="password" id="acPass" placeholder="Password (6+ characters)" autocomplete="current-password">
+       <div class="dlg-row"><button class="btn primary" data-act="signin">Sign in</button><button class="btn" data-act="signup">Create account</button></div>
+       <button class="linkish" data-act="reset">Forgot password?</button>
+       <p class="small" id="acMsg"></p>`;
+}
+$('#acctBtn').addEventListener('click', () => { $('#acctDlg').showModal(); renderAccount(); });
+$('#acctBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b || !window.FretwiseCloud) return;
+  const cloud = window.FretwiseCloud, act = b.dataset.act, email = $('#acEmail')?.value.trim(), pass = $('#acPass')?.value;
+  const msg = (t, ok) => { const m = $('#acMsg'); if (m){ m.textContent = t; m.style.color = ok ? 'var(--good)' : 'var(--bad)'; } };
+  try {
+    if (act === 'google') await cloud.signInGoogle();
+    else if (act === 'signin') await cloud.signInEmail(email, pass);
+    else if (act === 'signup') await cloud.signUpEmail(email, pass);
+    else if (act === 'reset'){ if (!email) return msg('Enter your email first.'); await cloud.resetPassword(email); return msg('Password reset email sent.', true); }
+    else if (act === 'signout'){ if (saveTimer) await flushSave(); await cloud.signOut(); }
+    $('#acctDlg').close();
+  } catch(err){
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+    msg(AUTH_ERRORS[err.code] || 'Something went wrong: ' + (err.message || err));
+  }
+});
+window.Fretwise = { setAccount, cloudReady(){ account.available = true; renderAccount(); } };
+
+/* ================= Tabs & theme ================= */
+function showTab(t){
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  document.querySelectorAll('section.tab').forEach(s => s.hidden = s.id !== 'tab-' + t);
+  store('tab', t);
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+function applyTheme(t){ if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+applyTheme(load('theme', null));
+$('#themeBtn').addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  const t = dark ? 'light' : 'dark'; applyTheme(t); store('theme', t);
+});
+
+/* ================= Chords tab ================= */
+let cat = 'all';
+function renderLib(){
+  $('#catChips').innerHTML = CATS.map(([k,l]) => `<button class="chip${k === cat ? ' on' : ''}" data-cat="${k}">${l}</button>`).join('');
+  $('#chordGrid').innerHTML = LIB.filter(c => cat === 'all' || c.cat === cat).map(c => cardHTML(c)).join('');
+}
+$('#catChips').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b){ cat = b.dataset.cat; renderLib(); } });
+
+fillSelect($('#cfRoot'), ROOTS_ALL.map(r => [r, pretty(r)]), 'C');
+fillSelect($('#cfQual'), Object.entries(QUAL).map(([k,v]) => [k, v.label]), '');
+function renderFinder(){
+  const root = $('#cfRoot').value, q = $('#cfQual').value;
+  $('#cfOut').innerHTML = `<div class="finder">
+    <div class="panel">
+      <div class="big">${pretty(root)}${QUAL[q].sfx}</div>
+      <div class="muted small">${QUAL[q].label}</div>
+      <div style="margin-top:10px">${chordTones(root,q).map(t => `<span class="note-chip${t.ivl === '1' ? ' root' : ''}"><b>${pretty(t.name)}</b><small>${t.ivl}</small></span>`).join('')}</div>
+      <p class="small">${QUAL[q].info}</p>
+    </div>
+    <div class="grid">${voicings(root,q).map(v => cardHTML(v)).join('')}</div>
+  </div>`;
+}
+$('#cfRoot').addEventListener('change', renderFinder);
+$('#cfQual').addEventListener('change', renderFinder);
+
+/* ================= Scales ================= */
+const SCALES = {
+  // The seven modes of the major scale, in order
+  major:      { name:'Ionian (Major)',          mode:'Ionian',     flavor:'major',          deg:[[1,0],[2,2],[3,4],[4,5],[5,7],[6,9],[7,11]], desc:'The major scale — bright and resolved. The foundation of Western harmony; every major key and its chords come from it.' },
+  dorian:     { name:'Dorian',                  mode:'Dorian',     flavor:'minor, ♮6',      deg:[[1,0],[2,2],[3,3],[4,5],[5,7],[6,9],[7,10]], minor:true, desc:'Minor with a natural 6th. Jazzy, funky minor — great over m7 chords and minor vamps.' },
+  phrygian:   { name:'Phrygian',                mode:'Phrygian',   flavor:'minor, ♭2',      deg:[[1,0],[2,1],[3,3],[4,5],[5,7],[6,8],[7,10]], minor:true, desc:'Minor with a ♭2. Dark and Spanish/flamenco-flavoured; also loved in metal.' },
+  lydian:     { name:'Lydian',                  mode:'Lydian',     flavor:'major, ♯4',      deg:[[1,0],[2,2],[3,4],[4,6],[5,7],[6,9],[7,11]], desc:'Major with a raised 4th. Dreamy, floating, “film score” brightness — try it over maj7 chords.' },
+  mixolydian: { name:'Mixolydian',              mode:'Mixolydian', flavor:'major, ♭7',      deg:[[1,0],[2,2],[3,4],[4,5],[5,7],[6,9],[7,10]], desc:'Major with a ♭7 — the sound of dominant 7th chords. Rock, blues and folk.' },
+  minor:      { name:'Aeolian (Natural minor)', mode:'Aeolian',    flavor:'natural minor',  deg:[[1,0],[2,2],[3,3],[4,5],[5,7],[6,8],[7,10]], minor:true, desc:'The natural minor scale. Same notes as its relative major, starting from the 6th degree. Darker and melancholic.' },
+  locrian:    { name:'Locrian',                 mode:'Locrian',    flavor:'diminished, ♭2 ♭5', deg:[[1,0],[2,1],[3,3],[4,5],[5,6],[6,8],[7,10]], minor:true, desc:'The darkest mode — ♭2 and ♭5 make an unstable diminished tonic. Fits over m7♭5 chords.' },
+  // Other scales
+  harmonic:   { name:'Harmonic minor',        deg:[[1,0],[2,2],[3,3],[4,5],[5,7],[6,8],[7,11]], minor:true, desc:'Natural minor with a raised 7th. Gives minor keys a major V chord (strong V→i pull) and an exotic ♭6–7 gap.' },
+  melodic:    { name:'Melodic minor (jazz)',  deg:[[1,0],[2,2],[3,3],[4,5],[5,7],[6,9],[7,11]], minor:true, desc:'Minor with a raised 6th and 7th — like a major scale with a ♭3. Smooth, sophisticated jazz sound.' },
+  majPent:    { name:'Major pentatonic',      deg:[[1,0],[2,2],[3,4],[5,7],[6,9]], desc:'Major scale without the 4th and 7th. No clashing notes over major chords — country, rock and pop melodies.' },
+  minPent:    { name:'Minor pentatonic',      deg:[[1,0],[3,3],[4,5],[5,7],[7,10]], minor:true, desc:'The go-to rock and blues soloing scale. Five notes and easy “box” shapes — try Position 5 in A.' },
+  blues:      { name:'Blues',                 deg:[[1,0],[3,3],[4,5],[5,6],[5,7],[7,10]], minor:true, desc:'Minor pentatonic plus the ♭5 “blue note”. Use it as a passing tone for that gritty blues sound.' },
+};
+const MODES = ['major','dorian','phrygian','lydian','mixolydian','minor','locrian'];
+const ORDINAL = ['1st','2nd','3rd','4th','5th','6th','7th'];
+const RANGES = [['0-15','Whole neck'],['0-3','Open (frets 0–3)'],['2-6','Frets 2–6'],['5-9','Frets 5–9'],['7-11','Frets 7–11'],['9-13','Frets 9–13'],['12-15','Frets 12–15']];
+const DIATONIC = {
+  major: { scale:'major', tri:['','m','m','','','m','dim'], sev:['maj7','m7','m7','maj7','7','m7','m7b5'] },
+  minor: { scale:'minor', tri:['m','dim','','m','m','',''], sev:['m7','m7b5','maj7','m7','m7','maj7','7'] },
+};
+function numeral(d, q){
+  let r = ROMAN[d-1];
+  if (['m','m7','dim','m7b5'].includes(q)) r = r.toLowerCase();
+  return r + ({ dim:'°', m7b5:'ø7', '7':'7', maj7:'maj7', m7:'7' }[q] || '');
+}
+function diatonic(key, mode, sev){
+  const D = DIATONIC[mode];
+  return SCALES[D.scale].deg.map(([d,s], i) => { const q = (sev ? D.sev : D.tri)[i]; return { d, root: spell(key,d,s), q, numeral: numeral(d,q) }; });
+}
+function diatonicHTML(key, mode, sev){
+  return `<div class="dia">${diatonic(key,mode,sev).map(c =>
+    `<button class="dia-chip" data-frets="${bestVoicing(c.root,c.q).frets}" data-d="${c.d}"><span class="num">${c.numeral}</span><span class="nm">${pretty(c.root)}${QUAL[c.q].sfx}</span></button>`).join('')}</div>`;
+}
+
+const sc = load('scale', { root:'A', type:'minPent', labels:'notes', range:'5-9' });
+fillSelect($('#sType'), Object.entries(SCALES).map(([k,v]) => [k, v.name]), sc.type);
+fillSelect($('#sLabels'), [['notes','Note names'],['ivl','Intervals']], sc.labels);
+fillSelect($('#sRange'), RANGES, sc.range);
+function scaleRoots(){ return SCALES[sc.type].minor ? ROOTS_MIN : ROOTS_MAJ; }
+
+function scaleMapOf(root, type){
+  const rpc = parse(root).pc, map = {};
+  const notes = SCALES[type].deg.map(([d,s]) => ({ name: spell(root,d,s), ivl: ivl(d,s), s }));
+  notes.forEach(n => map[(rpc + n.s) % 12] = { ...n, root: n.s === 0 });
+  return { notes, map };
+}
+// map: pc → {name, ivl, root}; range: [fromFret, toFret]; only: draw notes on this string index only
+function fretboardSVG(map, range, labels = 'notes', only = null){
+  const F = 15, fw = 50, nut = 46, top = 22, ss = 22;
+  const W = nut + F*fw + 12, H = top + 5*ss + 34, mid = top + 2.5*ss;
+  let s = `<svg class="fb" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  s += `<rect x="${nut}" y="${top-9}" width="${F*fw}" height="${5*ss+18}" rx="3" class="fb-wood"/>`;
+  [3,5,7,9,15].forEach(f => s += `<circle cx="${nut+(f-.5)*fw}" cy="${mid}" r="5" class="fb-inlay"/>`);
+  [1.5,3.5].forEach(k => s += `<circle cx="${nut+11.5*fw}" cy="${top+k*ss}" r="5" class="fb-inlay"/>`);
+  for (let f = 1; f <= F; f++) s += `<line x1="${nut+f*fw}" y1="${top-9}" x2="${nut+f*fw}" y2="${top+5*ss+9}" class="fb-fret"/>`;
+  s += `<rect x="${nut-5}" y="${top-9}" width="5" height="${5*ss+18}" class="fb-nut"/>`;
+  for (let r = 0; r < 6; r++) s += `<line x1="${nut-30}" y1="${top+r*ss}" x2="${nut+F*fw}" y2="${top+r*ss}" class="fb-string" stroke-width="${0.8 + r*0.3}"/>`;
+  [0,3,5,7,9,12,15].forEach(f => s += `<text x="${f ? nut+(f-.5)*fw : nut-22}" y="${H-6}" class="fb-num" text-anchor="middle">${f}</text>`);
+  for (let i = 0; i < 6; i++) for (let f = 0; f <= F; f++){
+    const m = map[(OPEN_PC[i]+f) % 12]; if (!m || (only != null && i !== only)) continue;
+    const x = f ? nut + (f-.5)*fw : nut - 22, y = top + (5-i)*ss;
+    const inR = f >= range[0] && f <= range[1];
+    const label = labels === 'ivl' ? m.ivl : pretty(m.name);
+    s += `<g class="fb-note${m.root ? ' root' : ''}${inR ? '' : ' dim'}" data-midi="${OPEN_MIDI[i]+f}"><circle cx="${x}" cy="${y}" r="10"/><text x="${x}" y="${y+3.2}" text-anchor="middle"${label.length > 3 ? ' style="font-size:7px"' : ''}>${label}</text></g>`;
+  }
+  return s + '</svg>';
+}
+function renderScale(){
+  const roots = scaleRoots();
+  if (!roots.includes(sc.root)) sc.root = remap(sc.root, roots);
+  fillSelect($('#sRoot'), roots.map(r => [r, pretty(r)]), sc.root);
+  store('scale', sc);
+  const S = SCALES[sc.type], { notes, map } = scaleMapOf(sc.root, sc.type);
+  $('#sNotes').innerHTML = notes.map(n => `<span class="note-chip${n.s === 0 ? ' root' : ''}"><b>${pretty(n.name)}</b><small>${n.ivl}</small></span>`).join('');
+  const semis = [...notes.map(n => n.s), 12];
+  const stepName = { 1:'H', 2:'W', 3:'W+H' };
+  $('#sSteps').innerHTML = '<span class="muted" style="background:none;padding-left:0;font-weight:400">Steps:</span>' +
+    semis.slice(1).map((v,i) => `<span>${stepName[v - semis[i]]}</span>`).join('');
+  let rel = '';
+  if (sc.type === 'major') rel = ` Relative minor: <b>${pretty(spell(sc.root,6,9))} minor</b>.`;
+  if (sc.type === 'minor') rel = ` Relative major: <b>${pretty(spell(sc.root,3,3))} major</b>.`;
+  $('#sDesc').innerHTML = S.desc + rel;
+  const mi = MODES.indexOf(sc.type);
+  if (mi >= 0){
+    // Parent major key: the mode's root sits on degree mi+1 of it
+    const parent = spell(sc.root, (7 - mi) % 7 + 1, (12 - NAT[mi]) % 12);
+    $('#sModes').innerHTML = `<p class="small">${mi ? `<b>${pretty(sc.root)} ${S.mode}</b> uses the notes of <b>${pretty(parent)} major</b>, starting from its ${ORDINAL[mi]} note.` : `Starting the <b>${pretty(sc.root)} major</b> scale from each of its notes gives the seven modes:`}</p>
+      <div class="dia">${MODES.map((m,i) => { const r = spell(parent, i+1, NAT[i]);
+        return `<button class="dia-chip${i === mi ? ' on' : ''}" data-mode="${m}" data-root="${r}"><span class="num">${ROMAN[i]} · ${SCALES[m].flavor}</span><span class="nm">${pretty(r)} ${SCALES[m].mode}</span></button>`; }).join('')}</div>`;
+  } else $('#sModes').innerHTML = '';
+  $('#sBoard').innerHTML = fretboardSVG(map, sc.range.split('-').map(Number), sc.labels);
+  const mode = sc.type === 'major' ? 'major' : sc.type === 'minor' ? 'minor' : null;
+  $('#sDia').innerHTML = mode ? `<h3>Chords built from this scale</h3>${diatonicHTML(sc.root, mode, false)}${diatonicHTML(sc.root, mode, true)}` : '';
+}
+['sType','sLabels','sRange'].forEach(id => $('#'+id).addEventListener('change', e => {
+  sc[{ sType:'type', sLabels:'labels', sRange:'range' }[id]] = e.target.value; renderScale();
+}));
+$('#sRoot').addEventListener('change', e => { sc.root = e.target.value; renderScale(); });
+$('#sModes').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]'); if (!b) return;
+  sc.type = b.dataset.mode; $('#sType').value = sc.type;
+  const roots = scaleRoots();
+  // keep the parent key's spelling when the root list has it, otherwise its enharmonic
+  sc.root = roots.includes(b.dataset.root) ? b.dataset.root : remap(b.dataset.root, roots);
+  renderScale();
+});
+$('#sBoard').addEventListener('click', e => { const g = e.target.closest('[data-midi]'); if (g){ pluck(+g.dataset.midi, null, 0.4); flash(+g.dataset.midi); } });
+
+let scaleTimers = [];
+function flash(m){
+  document.querySelectorAll(`.fb-note[data-midi="${m}"]`).forEach(g => { g.classList.add('playing'); setTimeout(() => g.classList.remove('playing'), 260); });
+}
+$('#sPlay').addEventListener('click', () => {
+  scaleTimers.forEach(clearTimeout); scaleTimers = []; ac();
+  const [a,b] = sc.range.split('-').map(Number), rpc = parse(sc.root).pc;
+  let start = null;
+  for (let i = 0; i < 6 && start == null; i++) for (let f = a; f <= b; f++) if ((OPEN_PC[i]+f) % 12 === rpc){ start = OPEN_MIDI[i]+f; break; }
+  const up = [...SCALES[sc.type].deg.map(([,s]) => start + s), start + 12];
+  const seq = [...up, ...up.slice(0,-1).reverse()], dt = 0.3, t0 = ctx.currentTime + 0.05;
+  seq.forEach((m,k) => { pluck(m, t0 + k*dt, 0.4); scaleTimers.push(setTimeout(() => flash(m), (0.05 + k*dt)*1000)); });
+});
+
+/* ================= Progressions ================= */
+const PROGS = {
+  major: [
+    { name:'I – IV – V – I', steps:[1,4,5,1], desc:'The three-chord foundation of rock, folk and country. Learn this in every key.' },
+    { name:'I – V – vi – IV', steps:[1,5,6,4], desc:'The “pop axis” — behind countless modern hits.' },
+    { name:'I – vi – IV – V', steps:[1,6,4,5], desc:'The 1950s “doo-wop” progression. Sweet and nostalgic.' },
+    { name:'vi – IV – I – V', steps:[6,4,1,5], desc:'The pop axis starting on the minor chord — a more emotional feel.' },
+    { name:'I – IV – I – V', steps:[1,4,1,5], desc:'Classic folk/campfire pattern. Great for practising changes.' },
+    { name:'ii – V – I', steps:[2,5,1,1], sev:true, desc:'The most important cadence in jazz. Turn on 7ths to hear ii7 – V7 – Imaj7.' },
+    { name:'Canon (8 chords)', steps:[1,5,6,3,4,1,4,5], desc:'The famous Baroque sequence — a workout for smooth transitions.' },
+    { name:'12-bar blues', steps:[1,1,1,1,4,4,1,1,5,4,1,5], force:'7', desc:'Three dominant 7th chords over 12 bars. The foundation of blues and rock ’n’ roll.' },
+    { name:'Build your own', custom:true, desc:'Click the chords above to add them to your progression.' },
+  ],
+  minor: [
+    { name:'i – iv – v – i', steps:[1,4,5,1], desc:'The basic minor-key cadence using natural minor chords.' },
+    { name:'i – iv – V – i', steps:[1,4,{d:5,q:''},1], desc:'Harmonic minor: the V chord is major (raised 7th), giving a much stronger pull home.' },
+    { name:'i – VI – III – VII', steps:[1,6,3,7], desc:'An epic, anthemic minor progression used in rock and film music.' },
+    { name:'i – VII – VI – V', steps:[1,7,6,{d:5,q:''}], desc:'The Andalusian cadence — a descending flamenco-flavoured line.' },
+    { name:'i – iv – VII – III', steps:[1,4,7,3], desc:'A circle-of-fifths movement that sounds natural and flowing.' },
+    { name:'i – VI – VII', steps:[1,6,7,7], desc:'The Aeolian vamp — heroic and driving.' },
+    { name:'ii° – V – i', steps:[2,{d:5,q:''},1,1], sev:true, desc:'The minor jazz cadence: iiø7 – V7 – im7. Try it with 7ths on.' },
+    { name:'Build your own', custom:true, desc:'Click the chords above to add them to your progression.' },
+  ],
+};
+const PATTERNS = { whole:['Whole notes','D-------'], quarter:['Quarter notes','D-D-D-D-'], folk:['D – D U – U D U','D-DU-UDU'], eighth:['Straight 8ths','DUDUDUDU'] };
+fillSelect($('#pPattern'), Object.entries(PATTERNS).map(([k,v]) => [k, v[0]]), 'folk');
+
+const prog = { key:'C', mode:'major', idx:0, sev:false, custom:[] };
+const toSev = (q, d) => q === '' ? (d === 5 ? '7' : 'maj7') : q === 'm' ? 'm7' : q === 'dim' ? 'm7b5' : q;
+// ps: { key, mode, idx, sev, custom } — the Progressions tab state by default
+function progChords(ps = prog){
+  const p = PROGS[ps.mode][ps.idx], D = DIATONIC[ps.mode], sc7 = SCALES[D.scale].deg;
+  const steps = p.custom ? ps.custom : p.steps;
+  const chords = steps.map(step => {
+    const st = typeof step === 'number' ? { d:step } : step;
+    const root = spell(ps.key, st.d, sc7[st.d-1][1]);
+    let q;
+    if (p.force) q = p.force;
+    else if (st.q !== undefined) q = ps.sev ? toSev(st.q, st.d) : st.q;
+    else q = (ps.sev ? D.sev : D.tri)[st.d-1];
+    return { root, q, numeral: numeral(st.d, q) };
+  });
+  voiceLead(chords).forEach((v, i) => chords[i].voicing = v);
+  return chords;
+}
+function renderProg(){
+  const keys = prog.mode === 'major' ? ROOTS_MAJ : ROOTS_MIN;
+  if (!keys.includes(prog.key)) prog.key = remap(prog.key, keys);
+  fillSelect($('#pKey'), keys.map(r => [r, pretty(r) + (prog.mode === 'minor' ? 'm' : '')]), prog.key);
+  $('#pMode').value = prog.mode; $('#pSev').checked = prog.sev;
+  const list = PROGS[prog.mode], p = list[prog.idx];
+  $('#pList').innerHTML = list.map((x,i) => `<button class="chip${i === prog.idx ? ' on' : ''}" data-i="${i}">${x.name}</button>`).join('');
+  $('#pDesc').textContent = p.desc;
+  $('#pDia').innerHTML = diatonicHTML(prog.key, prog.mode, prog.sev);
+  $('#diaHint').textContent = p.custom ? '— click to add to your progression' : '— click to hear';
+  $('#customBtns').hidden = !p.custom;
+  const chords = progChords();
+  $('#pGrid').innerHTML = chords.length
+    ? chords.map((c,i) => `<div class="prog-slot" data-slot="${i}"><div class="numeral">${c.numeral}</div>${cardHTML(c.voicing)}</div>`).join('')
+    : '<p class="muted">No chords yet — click chords above to build a progression.</p>';
+  store('prog', { key:prog.key, mode:prog.mode, idx:prog.idx, sev:prog.sev, custom:prog.custom });
+}
+Object.assign(prog, load('prog', {}));
+if (!PROGS[prog.mode][prog.idx]) prog.idx = 0;
+
+$('#pKey').addEventListener('change', e => { prog.key = e.target.value; renderProg(); });
+$('#pMode').addEventListener('change', e => { prog.mode = e.target.value; prog.idx = 0; prog.custom = []; renderProg(); });
+$('#pSev').addEventListener('change', e => { prog.sev = e.target.checked; renderProg(); });
+$('#pList').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  prog.idx = +b.dataset.i; if (PROGS[prog.mode][prog.idx].sev) prog.sev = true; renderProg();
+});
+$('#pDia').addEventListener('click', e => {
+  const b = e.target.closest('[data-d]');
+  if (b && PROGS[prog.mode][prog.idx].custom && prog.custom.length < 16){ prog.custom.push(+b.dataset.d); renderProg(); }
+});
+$('#cUndo').addEventListener('click', () => { prog.custom.pop(); renderProg(); });
+$('#cClear').addEventListener('click', () => { prog.custom = []; renderProg(); });
+$('#pTempo').addEventListener('input', e => $('#pTempoVal').textContent = e.target.value);
+
+const player = { on:false, tick:0, timer:null };
+function highlight(bar){ document.querySelectorAll('.prog-slot').forEach(s => s.classList.toggle('active', +s.dataset.slot === bar)); }
+function stopProg(){
+  player.on = false; clearTimeout(player.timer);
+  $('#pPlay').textContent = '▶ Play'; $('#pBeat').textContent = '–'; highlight(-1);
+}
+function stepProg(){
+  if (!player.on) return;
+  const chords = progChords();
+  if (!chords.length) return stopProg();
+  if (player.tick >= chords.length * 8){
+    if (!$('#pLoop').checked) return stopProg();
+    player.tick = 0;
+  }
+  const bar = Math.floor(player.tick / 8), pos = player.tick % 8, t = ctx.currentTime + 0.03;
+  if (pos === 0) highlight(bar);
+  const hit = PATTERNS[$('#pPattern').value][1][pos];
+  if (hit !== '-') strum(chords[bar].voicing.frets, hit, pos === 0 ? 1 : 0.8, t);
+  if (pos % 2 === 0){ if ($('#pMetro').checked) click(t, pos === 0); $('#pBeat').textContent = pos/2 + 1; }
+  else $('#pBeat').textContent = (pos-1)/2 + 1 + '&';
+  player.tick++;
+  player.timer = setTimeout(stepProg, 60000 / +$('#pTempo').value / 2);
+}
+$('#pPlay').addEventListener('click', () => {
+  if (player.on) return stopProg();
+  ac(); player.on = true; player.tick = 0; $('#pPlay').textContent = '■ Stop'; stepProg();
+});
+
+/* ================= Practice: quiz ================= */
+const quiz = { cur:null, score:0, total:0, streak:0, answered:false };
+function quizPool(){
+  const p = $('#qPool').value;
+  return LIB.filter(c => p === 'all' || (p === 'open' && (c.cat === 'major' || c.cat === 'minor'))
+    || (p === 'sev' && ['dom7','maj7','min7'].includes(c.cat)) || (p === 'barre' && c.cat === 'barre'));
+}
+function newQuestion(){
+  const pool = quizPool(), cur = pool[Math.floor(Math.random() * pool.length)];
+  const others = shuffle([...new Set(pool.map(chordName))].filter(n => n !== chordName(cur)));
+  const opts = shuffle([chordName(cur), ...others.slice(0,3)]);
+  Object.assign(quiz, { cur, answered:false });
+  $('#qCard').innerHTML = cardHTML(cur, true);
+  $('#qOpts').innerHTML = opts.map(n => `<button class="opt" data-n="${n}">${n}</button>`).join('');
+  $('#qFeedback').textContent = ''; $('#qNext').hidden = true;
+}
+$('#qOpts').addEventListener('click', e => {
+  const b = e.target.closest('[data-n]'); if (!b || quiz.answered) return;
+  quiz.answered = true; quiz.total++;
+  const right = chordName(quiz.cur), ok = b.dataset.n === right;
+  if (ok){ quiz.score++; quiz.streak++; } else quiz.streak = 0;
+  document.querySelectorAll('.opt').forEach(o => { if (o.dataset.n === right) o.classList.add('right'); else if (o === b) o.classList.add('wrong'); });
+  const tones = chordTones(quiz.cur.root, quiz.cur.q).map(t => pretty(t.name)).join(' ');
+  $('#qFeedback').innerHTML = (ok ? `<span style="color:var(--good)">Correct!</span>` : `<span style="color:var(--bad)">That's ${right}.</span>`) + ` <span class="muted">Notes: ${tones}</span>`;
+  $('#qScore').textContent = `Score ${quiz.score}/${quiz.total}` + (quiz.streak > 1 ? ` · streak ${quiz.streak} 🔥` : '');
+  strum(quiz.cur.frets);
+  $('#qNext').hidden = false;
+});
+$('#qNext').addEventListener('click', newQuestion);
+$('#qPool').addEventListener('change', newQuestion);
+
+/* ================= Practice: one-minute changes ================= */
+const chOpts = () => LIB.map((c,i) => [i, chordName(c) + (c.tag === 'Open' ? '' : ` (${c.tag.split(' ')[0]})`)]);
+const defA = LIB.findIndex(c => c.root === 'C' && c.q === ''), defB = LIB.findIndex(c => c.root === 'G' && c.q === '');
+const pairKey = () => [chordName(LIB[$('#chA').value]), chordName(LIB[$('#chB').value])].sort().join(' ↔ ');
+function renderChanges(){
+  $('#chCards').innerHTML = cardHTML(LIB[$('#chA').value]) + cardHTML(LIB[$('#chB').value]);
+  const best = getProgress('best', {})[pairKey()];
+  $('#chBest').innerHTML = best ? `Personal best for <b>${pairKey()}</b>: <b>${best}</b> changes/min` : `No score yet for <b>${pairKey()}</b>`;
+  store('chA', +$('#chA').value); store('chB', +$('#chB').value);
+}
+$('#chA').addEventListener('change', renderChanges);
+$('#chB').addEventListener('change', renderChanges);
+let chTimer = null;
+$('#chStart').addEventListener('click', () => {
+  if (chTimer){ clearInterval(chTimer); chTimer = null; $('#chStart').textContent = 'Start'; $('#chTimer').textContent = '60'; return; }
+  ac(); $('#chResult').hidden = true;
+  const end = performance.now() + 60000;
+  $('#chStart').textContent = 'Cancel';
+  click(ctx.currentTime + 0.01, true);
+  chTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((end - performance.now()) / 1000));
+    $('#chTimer').textContent = left;
+    if (left === 0){
+      clearInterval(chTimer); chTimer = null; $('#chStart').textContent = 'Start again';
+      [76, 83, 88].forEach((m,k) => pluck(m, ctx.currentTime + k*0.12, 0.4));
+      $('#chResult').hidden = false; $('#chCount').value = ''; $('#chCount').focus();
+    }
+  }, 100);
+});
+$('#chSave').addEventListener('click', () => {
+  const n = parseInt($('#chCount').value, 10); if (!(n >= 0)) return;
+  const best = { ...getProgress('best', {}) }, k = pairKey(), prev = best[k] || 0;
+  if (n > prev){ best[k] = n; setProgress('best', best); }
+  $('#chResult').hidden = true; $('#chTimer').textContent = '60';
+  renderChanges();
+  $('#chBest').innerHTML = (n > prev ? `🎉 New best! ` : `You made ${n}. `) + $('#chBest').innerHTML;
+});
+
+/* ================= Random selectors ================= */
+const pick = a => a[Math.floor(Math.random() * a.length)];
+// Pick from `list`, avoiding `prev` when there's a choice
+const pickNew = (list, prev, key = x => x) => { const rest = list.filter(x => key(x) !== key(prev)); return pick(rest.length ? rest : list); };
+
+$('#cfRand').addEventListener('click', () => {
+  const cur = { root:$('#cfRoot').value, q:$('#cfQual').value };
+  const next = pickNew(ROOTS_ALL.flatMap(root => Object.keys(QUAL).map(q => ({ root, q }))), cur, x => x.root + x.q);
+  $('#cfRoot').value = next.root; $('#cfQual').value = next.q; renderFinder();
+  strum(bestVoicing(next.root, next.q).frets);
+});
+$('#sRand').addEventListener('click', () => {
+  sc.type = pickNew(Object.keys(SCALES), sc.type);
+  sc.root = pick(scaleRoots()); $('#sType').value = sc.type; renderScale();
+});
+
+/* ================= Drill ================= */
+const STRING_NAMES = ['6th string (low E)','5th string (A)','4th string (D)','3rd string (G)','2nd string (B)','1st string (high e)'];
+const DRILL_KINDS = [['chord','Chords'],['scale','Scales'],['prog','Progressions'],['note','Find the note']];
+const DRILL_CHORDS = ['', 'm', '7', 'maj7', 'm7', 'm7b5', 'dim'];
+const PRESETS = [
+  ['Open chords (beginner)',      { kinds:['chord'], roots:'open', q:['','m','7'] }],
+  ['Major & minor, all keys',     { kinds:['chord'], roots:'all', q:['','m'] }],
+  ['7th chords, all keys',        { kinds:['chord'], roots:'all', q:['7','maj7','m7','m7b5'] }],
+  ['The 7 modes',                 { kinds:['scale'], roots:'nat', s:[...MODES], scalePos:false }],
+  ['Pentatonic & blues positions',{ kinds:['scale'], roots:'all', s:['minPent','majPent','blues'], scalePos:true }],
+  ['Progressions in any key',     { kinds:['prog'], roots:'all', progMode:'both' }],
+  ['Fretboard notes',             { kinds:['note'], roots:'nat' }],
+  ['Mixed workout',               { kinds:['chord','scale','prog','note'], roots:'nat' }],
+];
+const drill = Object.assign({
+  kinds:['chord'], roots:'nat', q:['','m','7','maj7','m7'], s:['major','minor','majPent','minPent'], scalePos:true,
+  progMode:'both', progSev:false, timing:'manual', secs:'10', bpm:70, bars:'2', metro:true,
+  len:'0', hide:false, sound:true, weighted:true,
+}, load('drill2', {}));
+let dstats = getProgress('drillStats', {});   // itemKey → { it, w (draw weight), good, shaky, miss }
+const ds = { running:false, paused:false, pausedAt:0, cur:null, next:null, curChords:null, revealed:true, rated:null,
+             start:0, n:0, itemBeat:0, totalBeats:0, nextBeat:0, tally:{}, history:[], timer:null };
+
+function drillRoots(list){ return drill.roots === 'all' ? list : list.filter(r => r.length === 1); }
+function buildPool(){
+  const pool = [], has = k => drill.kinds.includes(k);
+  if (has('chord')){
+    if (drill.roots === 'open') OPEN.filter(c => drill.q.includes(c.q)).forEach(c => pool.push({ kind:'chord', root:c.root, q:c.q }));
+    else drillRoots(ROOTS_MAJ).forEach(root => drill.q.forEach(q => pool.push({ kind:'chord', root, q })));
+  }
+  if (has('scale')) drill.s.forEach(type => drillRoots(SCALES[type].minor ? ROOTS_MIN : ROOTS_MAJ).forEach(root => pool.push({ kind:'scale', root, type })));
+  if (has('prog')) ['major','minor'].filter(m => drill.progMode === 'both' || drill.progMode === m).forEach(mode =>
+    PROGS[mode].forEach((p, idx) => { if (!p.custom) drillRoots(mode === 'major' ? ROOTS_MAJ : ROOTS_MIN).forEach(key => pool.push({ kind:'prog', mode, idx, key })); }));
+  if (has('note')) drillRoots(ROOTS_MAJ).forEach(note => [0,1,2,3,4,5].forEach(string => pool.push({ kind:'note', note, string })));
+  return pool;
+}
+function itemKey(it){
+  return it.kind === 'chord' ? `c|${it.root}|${it.q}` : it.kind === 'scale' ? `s|${it.root}|${it.type}`
+       : it.kind === 'prog' ? `p|${it.mode}|${it.idx}|${it.key}` : `n|${it.note}|${it.string}`;
+}
+function itemTitle(it){
+  if (it.kind === 'chord') return chordName(it);
+  if (it.kind === 'scale') return `${pretty(it.root)} ${SCALES[it.type].name}`;
+  if (it.kind === 'prog') return `${PROGS[it.mode][it.idx]?.name ?? 'Progression'} in ${pretty(it.key)} ${it.mode}`;
+  return `${pretty(it.note)} on the ${STRING_NAMES[it.string]}`;
+}
+// Weighted random draw (weak items come up more often), never repeating `avoid`
+function pickItem(avoid){
+  const pool = buildPool(); if (!pool.length) return null;
+  const ak = avoid && itemKey(avoid);
+  let cands = pool.filter(x => itemKey(x) !== ak); if (!cands.length) cands = pool;
+  let it = cands[cands.length - 1];
+  if (drill.weighted){
+    const ws = cands.map(x => dstats[itemKey(x)]?.w ?? 1);
+    let r = Math.random() * ws.reduce((a,b) => a + b, 0);
+    for (let i = 0; i < cands.length; i++){ r -= ws[i]; if (r <= 0){ it = cands[i]; break; } }
+  } else it = pick(cands);
+  return it.kind === 'scale' ? { ...it, range: drill.scalePos ? pick(RANGES.slice(1))[0] : '0-15' } : it;
+}
+const drillProgChords = it => progChords({ key:it.key, mode:it.mode, idx:it.idx, sev: drill.progSev || !!PROGS[it.mode][it.idx].sev });
+function rootMidiIn(pc, a, b){
+  for (let i = 0; i < 6; i++) for (let f = a; f <= b; f++) if ((OPEN_PC[i]+f) % 12 === pc) return OPEN_MIDI[i] + f;
+  return 40 + (pc - 4 + 12) % 12;
+}
+const toneChips = list => list.map(t => `<span class="note-chip${t.ivl === '1' ? ' root' : ''}"><b>${pretty(t.name)}</b><small>${t.ivl}</small></span>`).join('');
+
+function itemView(it){
+  if (it.kind === 'chord') return {
+    head: `<div class="big">${chordName(it)}</div><div class="sub">${QUAL[it.q].label}</div>`,
+    body: cardHTML(bestVoicing(it.root, it.q)) + `<div>${toneChips(chordTones(it.root, it.q))}<p><button class="btn" data-go="chord">All voicings →</button></p></div>`,
+  };
+  if (it.kind === 'scale'){
+    const { notes, map } = scaleMapOf(it.root, it.type), range = it.range.split('-').map(Number);
+    return {
+      head: `<div class="big">${pretty(it.root)} ${SCALES[it.type].name}</div><div class="sub">${it.range === '0-15' ? 'Anywhere on the neck' : `Play it between frets ${range[0]} and ${range[1]}`}</div>`,
+      body: `<div>${toneChips(notes)}</div><div class="fb-wrap">${fretboardSVG(map, range)}</div><p><button class="btn" data-go="scale">Open in Scales →</button></p>`,
+    };
+  }
+  if (it.kind === 'prog'){
+    const chords = ds.curChords || drillProgChords(it), name = PROGS[it.mode][it.idx].name, nums = chords.map(c => c.numeral).join(' – ');
+    return {
+      head: `<div class="big">${pretty(it.key)} ${it.mode}</div><div class="sub">${name === nums ? '' : name + ' — '}play ${nums}</div>`,
+      body: `<div class="rd-prog">${chords.map(c => cardHTML(c.voicing)).join('')}</div>`,
+    };
+  }
+  const pc = parse(it.note).pc, frets = [];
+  for (let f = 0; f <= 15; f++) if ((OPEN_PC[it.string] + f) % 12 === pc) frets.push(f);
+  return {
+    head: `<div class="big">Find ${pretty(it.note)}</div><div class="sub">on the ${STRING_NAMES[it.string]}, up to fret 15</div>`,
+    body: `<div class="fb-wrap">${fretboardSVG({ [pc]: { name:it.note, ivl:'1', root:true } }, [0,15], 'notes', it.string)}</div><p>Frets: <b>${frets.join(', ')}</b></p>`,
+  };
+}
+const idleHTML = () => `<p class="muted">Choose what to practise, then press <b>Start session</b>.</p>
+  <ul class="info-list muted"><li><b>Chords</b> — play the chord shown.</li><li><b>Scales</b> — play it up and down (in the position given).</li>
+  <li><b>Progressions</b> — play the chords from the Roman numerals in that key.</li><li><b>Find the note</b> — find every place that note occurs on one string.</li></ul>
+  <p class="muted small">Turn on challenge mode to test yourself first, then reveal the answer.</p>`;
+
+function renderStage(){
+  const timed = drill.timing !== 'manual', len = +drill.len;
+  $('#rdBarWrap').hidden = !(ds.running && timed);
+  $('#rdSkip').hidden = !(ds.running && timed);
+  $('#rdEnd').hidden = !ds.running;
+  $('#rdRate').hidden = !(ds.running && ds.cur);
+  $('#rdMain').textContent = !ds.running ? '▶ Start session' : !timed ? (ds.revealed ? 'Next ⏭' : 'Reveal') : ds.paused ? '▶ Resume' : '⏸ Pause';
+  document.querySelectorAll('#rdRate [data-r]').forEach(b => b.classList.toggle('chosen', b.dataset.r === ds.rated));
+  $('#rdCount').textContent = ds.running ? `Item ${ds.n}${len ? ' of ' + len : ''}${ds.paused ? ' · paused' : ''}` : '';
+  $('#rdUpNext').textContent = ds.running && timed && ds.next ? `Up next: ${itemTitle(ds.next)}` : '';
+  $('#rdHistory').innerHTML = ds.history.slice(-30).map(h => `<span class="${h.r || ''}">${itemTitle(h.it)}</span>`).join('');
+  if (!ds.running || !ds.cur) return;
+  const v = itemView(ds.cur);
+  $('#rdOut').innerHTML = `<div class="rd-head">${v.head}</div>` +
+    (ds.revealed ? `<div class="rd-body">${v.body}</div>` : `<button class="btn reveal-btn" id="rdReveal">Reveal answer</button>`);
+}
+function playItem(it, t){
+  ac(); t = t ?? ctx.currentTime + 0.03;
+  if (it.kind === 'chord') strum(bestVoicing(it.root, it.q).frets, 'D', 1, t);
+  else if (it.kind === 'scale'){
+    const [a,b] = it.range.split('-').map(Number), start = rootMidiIn(parse(it.root).pc, a, b);
+    [...SCALES[it.type].deg.map(([,s]) => start + s), start + 12].forEach((m,k) => pluck(m, t + k*0.2, 0.4));
+  } else if (it.kind === 'prog') ds.curChords.forEach((c,k) => strum(c.voicing.frets, 'D', 1, t + k*0.6));
+}
+function startSession(){
+  if (!buildPool().length){ $('#rdOut').innerHTML = '<p class="muted">Nothing to draw — pick at least one item type, chord type or scale.</p>'; return; }
+  ac();
+  Object.assign(ds, { running:true, paused:false, cur:null, next:pickItem(null), n:0, tally:{ good:0, shaky:0, miss:0 }, history:[] });
+  clearInterval(ds.timer); ds.timer = setInterval(tick, 25);
+  if (drill.timing === 'beats'){ ds.itemBeat = 0; ds.totalBeats = 0; ds.nextBeat = performance.now() + 150; renderStage(); }
+  else advance();
+}
+function advance(startAt = performance.now()){
+  const len = +drill.len;
+  if (len && ds.n >= len) return endSession();
+  ds.cur = ds.next || pickItem(null); ds.next = pickItem(ds.cur);
+  if (!ds.cur) return endSession();
+  ds.n++; ds.rated = null; ds.start = startAt; ds.itemBeat = 0;
+  ds.revealed = !drill.hide && ds.cur.kind !== 'note';
+  ds.curChords = ds.cur.kind === 'prog' ? drillProgChords(ds.cur) : null;
+  ds.totalBeats = (ds.curChords ? ds.curChords.length : +drill.bars) * 4;   // progressions: one bar per chord
+  ds.history.push({ it:ds.cur, r:null });
+  renderStage();
+  if (drill.sound && drill.timing !== 'beats' && ds.cur.kind !== 'note') playItem(ds.cur);
+}
+function reveal(){
+  if (!ds.cur || ds.revealed) return;
+  ds.revealed = true; renderStage();
+  if (drill.sound && ds.cur.kind === 'note'){
+    const s = ds.cur.string, pc = parse(ds.cur.note).pc; let f = 0;
+    while ((OPEN_PC[s] + f) % 12 !== pc) f++;
+    pluck(OPEN_MIDI[s] + f, null, 0.45);
+  }
+}
+function endSession(){
+  clearInterval(ds.timer); ds.running = false; ds.paused = false; ds.cur = null;
+  const t = ds.tally, weak = [...new Set(ds.history.filter(h => h.r === 'miss' || h.r === 'shaky').map(h => itemTitle(h.it)))];
+  $('#rdOut').innerHTML = ds.n ? `<h3 style="margin-top:0">Session complete</h3>
+    <div class="summary"><div><b>${ds.n}</b>items</div><div><b style="color:var(--good)">${t.good}</b>got it</div>
+    <div><b style="color:var(--accent)">${t.shaky}</b>shaky</div><div><b style="color:var(--bad)">${t.miss}</b>missed</div></div>
+    ${weak.length ? `<p class="small">Work on: <b>${weak.join(' · ')}</b></p>` : t.good ? '<p class="small">Clean session — nice work!</p>' : ''}` : idleHTML();
+  $('#rdBar').style.width = '0';
+  renderStage();
+}
+function togglePause(){
+  if (!ds.running || drill.timing === 'manual') return;
+  const now = performance.now();
+  if (ds.paused){ ds.start += now - ds.pausedAt; ds.nextBeat = now + 150; ds.paused = false; }
+  else { ds.paused = true; ds.pausedAt = now; }
+  renderStage();
+}
+function markProgBar(i){ document.querySelectorAll('#rdOut .rd-prog .chord-card').forEach((c,j) => c.classList.toggle('active', j === i)); }
+function onBeat(atMs, inMs){
+  if (ds.itemBeat >= ds.totalBeats){ advance(atMs); if (!ds.running) return; }
+  const b = ds.itemBeat, t = ctx.currentTime + Math.max(0, inMs) / 1000;
+  if (drill.metro) click(t, b % 4 === 0);
+  if (b % 4 === 0){
+    if (ds.cur.kind === 'prog'){
+      const i = (b / 4) % ds.curChords.length;
+      if (drill.sound) strum(ds.curChords[i].voicing.frets, 'D', 1, t);
+      setTimeout(() => markProgBar(i), Math.max(0, inMs));
+    } else if (b === 0 && drill.sound && ds.cur.kind !== 'note') playItem(ds.cur, t);
+  }
+  ds.itemBeat++;
+}
+function tick(){
+  if (!ds.running || ds.paused) return;
+  if ($('#tab-drill').hidden) return togglePause();     // auto-pause when you leave the tab
+  const now = performance.now();
+  let dur;
+  if (drill.timing === 'seconds'){
+    dur = +drill.secs * 1000;
+    if (now - ds.start >= dur) advance();
+  } else if (drill.timing === 'beats'){
+    const beatMs = 60000 / drill.bpm;
+    while (ds.nextBeat <= now + 100){ onBeat(ds.nextBeat, ds.nextBeat - now); if (!ds.running) return; ds.nextBeat += beatMs; }
+    dur = ds.totalBeats * beatMs;
+  } else return;
+  if (!ds.cur) return;
+  const p = Math.max(0, Math.min(1, (now - ds.start) / dur));
+  if (drill.hide && !ds.revealed && p >= 0.5) reveal();   // timed challenge: reveal halfway
+  $('#rdBar').style.width = p * 100 + '%';
+}
+function rate(r){
+  if (!ds.running || !ds.cur || ds.rated) return;
+  const k = itemKey(ds.cur), st = dstats[k] || { w:1, good:0, shaky:0, miss:0 };
+  st[r]++; st.it = ds.cur;
+  st.w = r === 'good' ? Math.max(0.4, st.w * 0.7) : r === 'shaky' ? Math.min(8, st.w * 1.4 + 0.3) : Math.min(8, st.w * 2 + 0.5);
+  dstats[k] = st; setProgress('drillStats', dstats);
+  ds.rated = r; ds.tally[r]++; ds.history[ds.history.length - 1].r = r;
+  renderWeak();
+  if (!ds.revealed) return reveal();
+  renderStage();
+  if (drill.timing === 'manual'){ const cur = ds.cur; setTimeout(() => { if (ds.running && ds.cur === cur) advance(); }, 300); }
+}
+function renderWeak(){
+  const rows = Object.values(dstats).filter(s => s.miss + s.shaky > 0).sort((a,b) => b.w - a.w).slice(0, 10);
+  $('#rdWeak').innerHTML = rows.length
+    ? rows.map(s => `<div class="weak"><span>${itemTitle(s.it)}</span><span class="muted">✓ ${s.good} · ~ ${s.shaky} · ✗ ${s.miss}</span></div>`).join('')
+    : '<p class="muted small">Nothing yet.</p>';
+}
+function renderDrillSettings(){
+  const has = k => drill.kinds.includes(k);
+  $('#rdPresets').innerHTML = PRESETS.map(([n], i) => `<button class="chip" data-p="${i}">${n}</button>`).join('');
+  $('#rdKinds').innerHTML = DRILL_KINDS.map(([k,l]) => `<button class="chip${has(k) ? ' on' : ''}" data-k="${k}">${l}</button>`).join('');
+  $('#rdChordTypes').innerHTML = DRILL_CHORDS.map(q => `<button class="chip${drill.q.includes(q) ? ' on' : ''}" data-q="${q}">${QUAL[q].label}</button>`).join('');
+  $('#rdScaleTypes').innerHTML = Object.entries(SCALES).map(([k,v]) => `<button class="chip${drill.s.includes(k) ? ' on' : ''}" data-s="${k}">${v.name}</button>`).join('');
+  $('#rdChordRow').hidden = !has('chord'); $('#rdScaleRow').hidden = !has('scale'); $('#rdProgRow').hidden = !has('prog');
+  $('#rdRoots').value = drill.roots; $('#rdScalePos').checked = drill.scalePos;
+  $('#rdProgMode').value = drill.progMode; $('#rdProgSev').checked = drill.progSev;
+  $('#rdTiming').value = drill.timing; $('#rdSecs').value = drill.secs;
+  $('#rdBpm').value = drill.bpm; $('#rdBpmVal').textContent = drill.bpm; $('#rdBars').value = drill.bars; $('#rdMetro').checked = drill.metro;
+  $('#rdSecsL').hidden = drill.timing !== 'seconds'; $('#rdBeatsL').hidden = drill.timing !== 'beats';
+  $('#rdLen').value = drill.len; $('#rdHide').checked = drill.hide; $('#rdSound').checked = drill.sound; $('#rdWeighted').checked = drill.weighted;
+  const n = buildPool().length;
+  $('#rdPoolSize').textContent = `${n} possible item${n === 1 ? '' : 's'} in the hat.`;
+  store('drill2', drill);
+  if (ds.running){ ds.next = pickItem(ds.cur); renderStage(); }
+  else if (!ds.n) $('#rdOut').innerHTML = idleHTML();
+}
+
+const toggleIn = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+$('#rdKinds').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b){ drill.kinds = toggleIn(drill.kinds, b.dataset.k); renderDrillSettings(); } });
+$('#rdChordTypes').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b){ drill.q = toggleIn(drill.q, b.dataset.q); renderDrillSettings(); } });
+$('#rdScaleTypes').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (b){ drill.s = toggleIn(drill.s, b.dataset.s); renderDrillSettings(); } });
+$('#rdPresets').addEventListener('click', e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  Object.assign(drill, JSON.parse(JSON.stringify(PRESETS[b.dataset.p][1]))); renderDrillSettings();
+});
+const DRILL_FIELDS = { rdRoots:'roots', rdScalePos:'scalePos', rdProgMode:'progMode', rdProgSev:'progSev', rdTiming:'timing', rdSecs:'secs',
+  rdBpm:'bpm', rdBars:'bars', rdMetro:'metro', rdLen:'len', rdHide:'hide', rdSound:'sound', rdWeighted:'weighted' };
+Object.entries(DRILL_FIELDS).forEach(([id, key]) => $('#'+id).addEventListener(id === 'rdBpm' ? 'input' : 'change', e => {
+  const el = e.target;
+  drill[key] = el.type === 'checkbox' ? el.checked : id === 'rdBpm' ? +el.value : el.value;
+  if (key === 'timing' && ds.running) endSession();
+  renderDrillSettings();
+}));
+$('#rdMain').addEventListener('click', () => {
+  if (!ds.running) return startSession();
+  if (drill.timing === 'manual') return ds.revealed ? advance() : reveal();
+  togglePause();
+});
+$('#rdSkip').addEventListener('click', () => { if (ds.running){ if (drill.timing === 'beats') ds.itemBeat = ds.totalBeats; else advance(); } });
+$('#rdEnd').addEventListener('click', endSession);
+$('#rdRate').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (b) rate(b.dataset.r); });
+$('#rdReset').addEventListener('click', () => { if (confirm('Clear all drill ratings?')){ dstats = {}; setProgress('drillStats', dstats); renderWeak(); } });
+$('#rdOut').addEventListener('click', e => {
+  if (e.target.id === 'rdReveal') return reveal();
+  const g = e.target.closest('[data-midi]'); if (g) return pluck(+g.dataset.midi, null, 0.4);
+  const go = e.target.closest('[data-go]'), it = ds.cur; if (!go || !it) return;
+  if (go.dataset.go === 'chord'){ $('#cfRoot').value = it.root; $('#cfQual').value = it.q; renderFinder(); showTab('chords'); $('#cfOut').scrollIntoView({ behavior:'smooth' }); }
+  else { sc.type = it.type; sc.root = it.root; sc.range = it.range; $('#sType').value = sc.type; $('#sRange').value = sc.range; renderScale(); showTab('scales'); }
+});
+document.addEventListener('keydown', e => {
+  if ($('#tab-drill').hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, select, textarea')) return;
+  if (e.code === 'Space'){
+    e.preventDefault();
+    if (!ds.running) startSession();
+    else if (!ds.revealed) reveal();
+    else if (drill.timing === 'beats') ds.itemBeat = ds.totalBeats;
+    else advance();
+  } else if (['1','2','3'].includes(e.key)) rate(['good','shaky','miss'][e.key - 1]);
+  else if (e.key === 'p' || e.key === 'P') togglePause();
+});
+
+/* ================= Note-name language ================= */
+// Redraw everything that shows note names
+function renderNames(){
+  fillSelect($('#cfRoot'), ROOTS_ALL.map(r => [r, pretty(r)]), $('#cfRoot').value || 'C');
+  fillSelect($('#chA'), chOpts(), $('#chA').value || load('chA', defA));
+  fillSelect($('#chB'), chOpts(), $('#chB').value || load('chB', defB));
+  renderLib(); renderFinder(); renderScale(); renderProg(); newQuestion(); renderChanges();
+  renderDrillSettings(); renderWeak(); if (ds.running) renderStage();
+}
+$('#namesSel').addEventListener('change', e => { NAMES = e.target.value; store('names', NAMES); renderNames(); });
+
+/* ================= Init ================= */
+NAMES = load('names', 'en'); $('#namesSel').value = NAMES;
+renderNames();
+showTab(load('tab', 'chords'));
+</script>
+
+<!-- Cloud accounts (Firebase). Only runs on a web server with a config in firebase-config.js;
+     opened as a local file the tool works in guest mode. -->
+<script type="module">
+const cfg = window.FIREBASE_CONFIG;
+if (cfg && location.protocol !== 'file:'){
+  try {
+    const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+    const [{ initializeApp }, A, F] = await Promise.all([
+      import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js'),
+    ]);
+    const app = initializeApp(cfg), auth = A.getAuth(app), db = F.getFirestore(app);
+    window.FretwiseCloud = {
+      signInGoogle: () => A.signInWithPopup(auth, new A.GoogleAuthProvider()),
+      signInEmail: (email, pass) => A.signInWithEmailAndPassword(auth, email, pass),
+      signUpEmail: (email, pass) => A.createUserWithEmailAndPassword(auth, email, pass),
+      resetPassword: email => A.sendPasswordResetEmail(auth, email),
+      signOut: () => A.signOut(auth),
+    };
+    A.onAuthStateChanged(auth, async u => {
+      if (!u) return Fretwise.setAccount(null);
+      // One private document per user: users/{uid} → { progress, updatedAt }
+      const ref = F.doc(db, 'users', u.uid);
+      let progress = {};
+      try { const snap = await F.getDoc(ref); if (snap.exists()) progress = snap.data().progress || {}; }
+      catch(e){ console.warn('Could not load progress', e); }
+      Fretwise.setAccount({ uid:u.uid, name:u.displayName || u.email || 'You' }, progress,
+        data => F.setDoc(ref, { progress:data, updatedAt:F.serverTimestamp() }, { merge:true }));
+    });
+    Fretwise.cloudReady();
+  } catch(e){ console.warn('Cloud sign-in unavailable — using this browser only.', e); }
+}
+</script>
+</body>
+</html>
