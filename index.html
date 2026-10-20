@@ -219,6 +219,8 @@ dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1
     <label>Key <select id="pKey"></select></label>
     <label>Mode <select id="pMode"><option value="major">Major</option><option value="minor">Minor</option></select></label>
     <label><input type="checkbox" id="pSev"> Use 7th chords</label>
+    <button class="btn" id="pRand">🎲 Random progression</button>
+    <label><input type="checkbox" id="pRandKeep"> Keep key &amp; mode</label>
   </div>
   <div class="chips" id="pList"></div>
   <p class="muted small" id="pDesc"></p>
@@ -1000,7 +1002,8 @@ if (!PROGS[prog.mode][prog.idx]) prog.idx = 0;
 
 $('#pKey').addEventListener('change', e => { prog.key = e.target.value; renderProg(); });
 $('#pMode').addEventListener('change', e => { prog.mode = e.target.value; prog.idx = 0; prog.custom = []; renderProg(); });
-$('#pSev').addEventListener('change', e => { prog.sev = e.target.checked; renderProg(); });
+let sevChoice = prog.sev;               // the 7ths setting you chose yourself
+$('#pSev').addEventListener('change', e => { prog.sev = sevChoice = e.target.checked; renderProg(); });
 $('#pList').addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); if (!b) return;
   prog.idx = +b.dataset.i; if (PROGS[prog.mode][prog.idx].sev) prog.sev = true; renderProg();
@@ -1008,6 +1011,24 @@ $('#pList').addEventListener('click', e => {
 $('#pDia').addEventListener('click', e => {
   const b = e.target.closest('[data-d]');
   if (b && PROGS[prog.mode][prog.idx].custom && prog.custom.length < 16){ prog.custom.push(+b.dataset.d); renderProg(); }
+});
+// Random progression: a new progression (and, unless kept, a new key and mode), never the current one
+$('#pRandKeep').checked = load('pRandKeep', false);
+$('#pRandKeep').addEventListener('change', e => store('pRandKeep', e.target.checked));
+$('#pRand').addEventListener('click', () => {
+  const keep = $('#pRandKeep').checked, options = [];
+  (keep ? [prog.mode] : ['major','minor']).forEach(mode => PROGS[mode].forEach((p, idx) => {
+    if (p.custom) return;
+    (keep ? [prog.key] : mode === 'major' ? ROOTS_MAJ : ROOTS_MIN).forEach(key => {
+      if (!(mode === prog.mode && idx === prog.idx && key === prog.key)) options.push({ mode, idx, key });
+    });
+  }));
+  const next = options[Math.floor(Math.random() * options.length)];
+  if (!next) return;
+  Object.assign(prog, next);
+  prog.sev = !!PROGS[next.mode][next.idx].sev || sevChoice;   // jazz progressions turn 7ths on just for themselves
+  player.tick = 0;                       // if playing, restart from the first chord
+  renderProg();
 });
 $('#cUndo').addEventListener('click', () => { prog.custom.pop(); renderProg(); });
 $('#cClear').addEventListener('click', () => { prog.custom = []; renderProg(); });
