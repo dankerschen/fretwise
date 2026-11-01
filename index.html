@@ -858,11 +858,23 @@ const sc = load('scale', { root:'A', type:'minPent', labels:'notes', range:'5-9'
 fillSelect($('#sType'), Object.entries(SCALES).map(([k,v]) => [k, v.name]), sc.type);
 fillSelect($('#sLabels'), [['notes','Note names'],['ivl','Intervals']], sc.labels);
 fillSelect($('#sRange'), RANGES, sc.range);
-function scaleRoots(){ return SCALES[sc.type].minor ? ROOTS_MIN : ROOTS_MAJ; }
+// Root list for a scale: each black-key root uses whichever name spells the scale with fewer
+// sharps/flats (D♯ Locrian rather than E♭ Locrian with B𝄫 and F♭); ties keep the usual key name
+const ENHARM = { Db:'C#', 'C#':'Db', Eb:'D#', 'F#':'Gb', Ab:'G#', 'G#':'Ab', Bb:'A#' };
+const accCount = (root, type) => scaleMapOf(root, type).notes.reduce((n, x) => n + x.name.length - 1, 0);
+function scaleRoots(type = sc.type){
+  return (SCALES[type].minor ? ROOTS_MIN : ROOTS_MAJ).map(r => ENHARM[r] && accCount(ENHARM[r], type) < accCount(r, type) ? ENHARM[r] : r);
+}
 
+function spellDeg(root, d, s, type){
+  const name = spell(root, d, s);
+  // Blues blue note: written ♭5, but as ♯4 when ♭5 would be C♭, F♭ or a double flat (F blues: B, not C♭)
+  if (type === 'blues' && s === 6 && /bb|^[CF]b/.test(name)) return { name: spell(root, 4, 6), ivl: '♯4' };
+  return { name, ivl: ivl(d, s) };
+}
 function scaleMapOf(root, type){
   const rpc = parse(root).pc, map = {};
-  const notes = SCALES[type].deg.map(([d,s]) => ({ name: spell(root,d,s), ivl: ivl(d,s), s }));
+  const notes = SCALES[type].deg.map(([d,s]) => ({ ...spellDeg(root, d, s, type), s }));
   notes.forEach(n => map[(rpc + n.s) % 12] = { ...n, root: n.s === 0 });
   return { notes, map };
 }
@@ -1215,7 +1227,7 @@ function buildPool(){
     if (drill.roots === 'open') OPEN.filter(c => drill.q.includes(c.q)).forEach(c => pool.push({ kind:'chord', root:c.root, q:c.q }));
     else drillRoots(ROOTS_MAJ).forEach(root => drill.q.forEach(q => pool.push({ kind:'chord', root, q })));
   }
-  if (has('scale')) drill.s.forEach(type => drillRoots(SCALES[type].minor ? ROOTS_MIN : ROOTS_MAJ).forEach(root => pool.push({ kind:'scale', root, type })));
+  if (has('scale')) drill.s.forEach(type => drillRoots(scaleRoots(type)).forEach(root => pool.push({ kind:'scale', root, type })));
   if (has('prog')) ['major','minor'].filter(m => drill.progMode === 'both' || drill.progMode === m).forEach(mode =>
     PROGS[mode].forEach((p, idx) => { if (!p.custom) drillRoots(mode === 'major' ? ROOTS_MAJ : ROOTS_MIN).forEach(key => pool.push({ kind:'prog', mode, idx, key })); }));
   if (has('note')) drillRoots(ROOTS_MAJ).forEach(note => [0,1,2,3,4,5].forEach(string => pool.push({ kind:'note', note, string })));
