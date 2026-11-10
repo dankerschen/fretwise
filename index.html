@@ -98,6 +98,18 @@ svg.cd{display:block;margin:4px auto 0}
 .prog-slot.active .numeral{color:var(--accent)}
 .prog-slot.active .chord-card{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .transport{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.strum{display:flex;flex-wrap:wrap;gap:4px 3px;margin:12px 0 8px}
+.strum .st{width:34px;text-align:center;border-radius:8px;padding:4px 0 3px;border:1px solid transparent}
+.strum .st b{display:block;font-size:1.35rem;line-height:1.2;color:var(--text)}
+.strum .st.soft b{opacity:.5;font-size:1.05rem}
+.strum .st.rest b{color:var(--muted);opacity:.45}
+.strum .st.chuck b{color:var(--bad)}
+.strum .st small{display:block;font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.strum .st.beat1 small{color:var(--text);font-weight:700}
+.strum .st.bar-gap{margin-left:10px}
+.strum .st.now{background:var(--accent-soft);border-color:var(--accent)}
+.strum.sixteen .st{width:24px}
+.strum.sixteen .st b{font-size:1.1rem}
 .beat{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.3rem;min-width:2.2em;color:var(--accent)}
 .fb-wrap{overflow-x:auto;padding-bottom:6px;margin-top:10px}
 svg.fb{display:block}
@@ -242,9 +254,17 @@ dialog input{display:block;width:100%;margin:8px 0;background:var(--bg);border:1
     <button class="btn primary" id="pPlay">▶ Play</button>
     <span class="beat" id="pBeat">–</span>
     <label class="muted small">Tempo <input type="range" id="pTempo" min="40" max="180" value="80"> <span id="pTempoVal">80</span> bpm</label>
-    <label class="muted small">Strum <select id="pPattern"></select></label>
     <label class="muted small"><input type="checkbox" id="pMetro" checked> Click</label>
     <label class="muted small"><input type="checkbox" id="pLoop" checked> Loop</label>
+  </div>
+  <div class="panel" style="margin:0 0 14px">
+    <div class="controls" style="margin-top:0">
+      <label>Strumming pattern <select id="pPattern"></select></label>
+      <button class="btn" id="pPatRand">🎲 Random pattern</button>
+      <label>Bars per chord <select id="pBars"><option value="1">1</option><option value="2">2</option></select></label>
+    </div>
+    <div class="strum" id="pStrum"></div>
+    <p class="muted small" id="pPatDesc" style="margin-bottom:0"></p>
   </div>
   <div class="grid" id="pGrid"></div>
 </section>
@@ -655,6 +675,18 @@ function strum(frets, dir = 'D', vel = 1, t){
   const gap = dir === 'U' ? 0.012 : 0.022;
   idx.forEach((i, k) => pluck(OPEN_MIDI[i] + frets[i], t + k*gap, 0.3*vel, i));
 }
+// Muted "chuck": strings damped by the fretting hand, a short percussive scratch
+let chuckBuf = null;
+function chuck(t){
+  ac(); [0,1,2,3,4,5].forEach(i => muteString(i, t));
+  if (!chuckBuf){
+    const sr = ctx.sampleRate, len = Math.floor(sr * 0.06); chuckBuf = ctx.createBuffer(1, len, sr);
+    const d = chuckBuf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = (Math.random()*2 - 1) * Math.exp(-i / (sr * 0.012));
+  }
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = chuckBuf; f.type = 'bandpass'; f.frequency.value = 1800; f.Q.value = 0.9; g.gain.value = 0.5;
+  src.connect(f); f.connect(g); g.connect(master); src.start(t);
+}
 function click(t, accent){
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.frequency.value = accent ? 1700 : 1150;
@@ -978,8 +1010,54 @@ const PROGS = {
     { name:'Build your own', custom:true, desc:'Click the chords above to add them to your progression.' },
   ],
 };
-const PATTERNS = { whole:['Whole notes','D-------'], quarter:['Quarter notes','D-D-D-D-'], folk:['D – D U – U D U','D-DU-UDU'], eighth:['Straight 8ths','DUDUDUDU'] };
-fillSelect($('#pPattern'), Object.entries(PATTERNS).map(([k,v]) => [k, v[0]]), 'folk');
+/* Strumming patterns: one bar each. D/U = down/up strum, d/u = lighter, X = muted chuck, - = hand keeps
+   moving but misses the strings. beats = beats per bar; the pattern is split evenly across them. */
+const PATTERNS = {
+  whole:   { name:'Whole notes',                 level:1, beats:4, pat:'D-------', desc:'One strum per bar — let it ring. Focus on clean chord changes.' },
+  quarter: { name:'Quarter notes',               level:1, beats:4, pat:'D-D-D-D-', desc:'A down strum on every beat. Keep your wrist loose and steady.' },
+  eighth:  { name:'Down-up eighths',             level:1, beats:4, pat:'DuDuDuDu', desc:'Down on the beat, lighter up on the “&”. The motion every other pattern is built from.' },
+  folk:    { name:'Pop / folk — D D U U D U',     level:2, beats:4, pat:'D-DU-UDU', desc:'The most-used strum in pop and campfire songs. Keep the hand moving down-up; the “–” are misses, not stops.' },
+  rock:    { name:'Rock — D D D U D U',           level:2, beats:4, pat:'D-D-DUDU', desc:'Steady downs that open up into eighths at the end of the bar. Great for driving rock and pop-punk.' },
+  island:  { name:'Island — D D U U D U (push)',  level:2, beats:4, pat:'D-DU-UD-', desc:'The pop/folk pattern without the last up: the space at the end gives a laid-back, reggae-pop lilt.' },
+  waltz:   { name:'Waltz 3/4 — D D U D U',        level:2, beats:3, pat:'D-DUDU',   desc:'Three beats per bar. Accent the first beat: ONE two three. Folk ballads, waltzes, “House of the Rising Sun” feel.' },
+  sixeight:{ name:'6/8 ballad — D D U D D U',     level:2, beats:2, pat:'DDUDDU',   desc:'Two big beats, each split into three. Count 1-2-3-4-5-6 with weight on 1 and 4. Tempo is in dotted-quarter beats.' },
+  chuck:   { name:'Backbeat chuck',               level:3, beats:4, pat:'D-XUDUXU', desc:'✕ = mute the strings with your fretting hand while you strum (a “chuck”) on beats 2 and 4, like a snare drum.' },
+  offbeat: { name:'Ska / reggae offbeats',        level:3, beats:4, pat:'-U-U-U-U', desc:'Only the “&”s, short and crisp. Let the chord ring briefly, then release pressure to cut it off.' },
+  shuffle: { name:'Blues shuffle (swung)',        level:3, beats:4, pat:'DuDuDuDu', swing:true, desc:'Down-up eighths with a swing: long–short, long–short (“dah-da dah-da”). Try it on the 12-bar blues.' },
+  funk:    { name:'Funk sixteenths',              level:3, beats:4, pat:'DuduXuduDuduXudu', desc:'Constant 16ths (1 e & a). Accent the downbeats, chuck on 2 and 4, keep everything else light.' },
+};
+const LEVEL = ['', 'Beginner', 'Easy', 'Intermediate'];
+const patGroups = [1,2,3].map(l => `<optgroup label="${LEVEL[l]}">${Object.entries(PATTERNS).filter(([,p]) => p.level === l)
+  .map(([k,p]) => `<option value="${k}">${p.name}</option>`).join('')}</optgroup>`).join('');
+$('#pPattern').innerHTML = patGroups;
+$('#pPattern').value = PATTERNS[load('pPattern', 'folk')] ? load('pPattern', 'folk') : 'folk';
+$('#pBars').value = String(load('pBars', 1));
+const curPat = () => PATTERNS[$('#pPattern').value];
+// Count label for step i of a pattern: 1 & 2 & / 1 e & a / 1 2 3 4 5 6 (6/8)
+function stepCount(p, i){
+  const spb = p.pat.length / p.beats, beat = Math.floor(i / spb) + 1, sub = i % spb;
+  if (spb === 3) return String(i + 1);
+  if (spb === 4) return sub ? ['','e','&','a'][sub] : String(beat);
+  return sub ? '&' : String(beat);
+}
+function renderStrum(){
+  const p = curPat(), spb = p.pat.length / p.beats;
+  const sym = { D:'↓', U:'↑', d:'↓', u:'↑', X:'✕', '-':'·' };
+  $('#pStrum').className = 'strum' + (spb === 4 ? ' sixteen' : '');
+  $('#pStrum').innerHTML = [...p.pat].map((c,i) => {
+    const cls = ['st', c === '-' ? 'rest' : c === 'X' ? 'chuck' : /[du]/.test(c) ? 'soft' : '', i % spb === 0 ? 'beat1' : '', i && i % spb === 0 && spb === 4 ? 'bar-gap' : ''].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-st="${i}"><b>${sym[c]}</b><small>${stepCount(p, i)}</small></div>`;
+  }).join('');
+  $('#pPatDesc').innerHTML = `<b>${LEVEL[p.level]}</b> · ${p.beats === 2 ? '6/8' : p.beats + '/4'}${p.swing ? ' · swung' : ''} — ${p.desc}`;
+  store('pPattern', $('#pPattern').value);
+}
+$('#pPattern').addEventListener('change', () => { renderStrum(); player.tick = 0; });
+$('#pBars').addEventListener('change', e => { store('pBars', +e.target.value); player.tick = 0; });
+$('#pPatRand').addEventListener('click', () => {
+  const keys = Object.keys(PATTERNS).filter(k => k !== $('#pPattern').value);
+  $('#pPattern').value = keys[Math.floor(Math.random() * keys.length)]; renderStrum(); player.tick = 0;
+});
+$('#pStrum').addEventListener('click', () => { if (!player.on) $('#pPlay').click(); });
 
 const prog = { key:'C', mode:'major', idx:0, sev:false, custom:[] };
 const toSev = (q, d) => q === '' ? (d === 5 ? '7' : 'maj7') : q === 'm' ? 'm7' : q === 'dim' ? 'm7b5' : q;
@@ -1053,32 +1131,42 @@ $('#cUndo').addEventListener('click', () => { prog.custom.pop(); renderProg(); }
 $('#cClear').addEventListener('click', () => { prog.custom = []; renderProg(); });
 $('#pTempo').addEventListener('input', e => $('#pTempoVal').textContent = e.target.value);
 
-const player = { on:false, tick:0, timer:null };
+const player = { on:false, tick:0, timer:null, at:0 };
 function highlight(bar){ document.querySelectorAll('.prog-slot').forEach(s => s.classList.toggle('active', +s.dataset.slot === bar)); }
+function markStep(i){ document.querySelectorAll('#pStrum .st').forEach(s => s.classList.toggle('now', +s.dataset.st === i)); }
 function stopProg(){
   player.on = false; clearTimeout(player.timer);
-  $('#pPlay').textContent = '▶ Play'; $('#pBeat').textContent = '–'; highlight(-1);
+  $('#pPlay').textContent = '▶ Play'; $('#pBeat').textContent = '–'; highlight(-1); markStep(-1);
 }
+// One step of the strumming pattern per call; each chord lasts `Bars per chord` bars
 function stepProg(){
   if (!player.on) return;
-  const chords = progChords();
+  const chords = progChords(), p = curPat(), n = p.pat.length, spb = n / p.beats, perChord = n * +$('#pBars').value;
   if (!chords.length) return stopProg();
-  if (player.tick >= chords.length * 8){
+  if (player.tick >= chords.length * perChord){
     if (!$('#pLoop').checked) return stopProg();
     player.tick = 0;
   }
-  const bar = Math.floor(player.tick / 8), pos = player.tick % 8, t = ctx.currentTime + 0.03;
-  if (pos === 0) highlight(bar);
-  const hit = PATTERNS[$('#pPattern').value][1][pos];
-  if (hit !== '-') strum(chords[bar].voicing.frets, hit, pos === 0 ? 1 : 0.8, t);
-  if (pos % 2 === 0){ if ($('#pMetro').checked) click(t, pos === 0); $('#pBeat').textContent = pos/2 + 1; }
-  else $('#pBeat').textContent = (pos-1)/2 + 1 + '&';
+  // Notes are timed on the audio clock (player.at), so timer lag never slows the tempo down
+  const ci = Math.floor(player.tick / perChord), pos = player.tick % n, t = Math.max(player.at, ctx.currentTime + 0.01);
+  if (player.tick % perChord === 0) highlight(ci);
+  markStep(pos);
+  const hit = p.pat[pos];
+  if (hit === 'X') chuck(t);
+  else if (hit !== '-') strum(chords[ci].voicing.frets, hit.toUpperCase(), /[du]/.test(hit) ? 0.55 : pos === 0 ? 1 : 0.85, t);
+  if (pos % spb === 0 && $('#pMetro').checked) click(t, pos === 0);
+  const beatN = Math.floor(pos / spb) + 1;
+  $('#pBeat').textContent = spb === 3 ? pos + 1 : pos % spb ? beatN + stepCount(p, pos) : beatN;   // 1, 1&, 2e…
   player.tick++;
-  player.timer = setTimeout(stepProg, 60000 / +$('#pTempo').value / 2);
+  // Swing: on-beat eighths last 2/3 of the beat, off-beat ones 1/3
+  const beat = 60 / +$('#pTempo').value;
+  player.at = t + (p.swing && spb === 2 ? beat * (pos % 2 ? 1/3 : 2/3) : beat / spb);
+  player.timer = setTimeout(stepProg, Math.max(0, (player.at - ctx.currentTime - 0.04) * 1000));
 }
+renderStrum();
 $('#pPlay').addEventListener('click', () => {
   if (player.on) return stopProg();
-  ac(); player.on = true; player.tick = 0; $('#pPlay').textContent = '■ Stop'; stepProg();
+  ac(); player.on = true; player.tick = 0; player.at = ctx.currentTime + 0.05; $('#pPlay').textContent = '■ Stop'; stepProg();
 });
 
 /* ================= Practice: quiz ================= */
